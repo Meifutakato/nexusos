@@ -1,0 +1,54 @@
+/* NexusOS — barre NexusOS : îlot central lumineux + heure à droite */
+* {
+    font-family: "Noto Sans", "JetBrainsMono Nerd Font";
+    font-size: 13px;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+}
+
+window#waybar {
+    background: transparent;
+    color: #e6ecff;
+}
+
+tooltip {
+    background: rgba(8, 14, 40, 0.95);
+    border: 1px solid rgba(79, 139, 255, 0.6);
+    border-radius: 12px;
+}
+
+/* ── Îlot central (réseau, bluetooth, son, batterie) ── */
+.modules-center {
+    background: rgba(6, 12, 34, 0.82);
+    border: 1px solid rgba(79, 139, 255, 0.75);
+    border-radius: 23px;
+    padding: 0 10px;
+    box-shadow: 0 0 14px rgba(47, 107, 255, 0.55);
+}
+
+#network, #bluetooth, #pulseaudio, #battery {
+    padding: 0 12px;
+    color: #e6ecff;
+}
+
+#network.disconnected { color: #9aa8d6; }
+#battery.warning      { color: #ffb454; }
+#battery.critical     { color: #ff5c7a; }
+
+/* ── Heure, en haut à droite ── */
+#clock {
+    padding: 0 14px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #e6ecff;
+}
+
+/* ── Bureaux, discrets à gauche ── */
+#workspaces button {
+    padding: 0 5px;
+    color: rgba(154, 168, 214, 0.7);
+    background: transparent;
+}
+#workspaces button.active { color: #4f8bff; }
+#workspaces button:hover  { color: #e6ecff; background: transparent; }

@@ -1,0 +1,25 @@
+# NexusOS — notifications NexusOS
+[global]
+    origin = top-right
+    offset = 18x64
+    width = 340
+    corner_radius = 14
+    frame_width = 1
+    frame_color = "#4f8bffbb"
+    font = Noto Sans 10
+    padding = 12
+    horizontal_padding = 14
+    icon_theme = Papirus-Dark
+
+[urgency_low]
+    background = "#060c22e6"
+    foreground = "#9aa8d6"
+
+[urgency_normal]
+    background = "#060c22e6"
+    foreground = "#e6ecff"
+
+[urgency_critical]
+    background = "#2a0a18f0"
+    foreground = "#ffffff"
+    frame_color = "#ff5c7a"

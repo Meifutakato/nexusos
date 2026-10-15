@@ -1,0 +1,31 @@
+/* NexusOS — dock flottant NexusOS */
+window {
+    background: rgba(6, 12, 34, 0.80);
+    border: 1px solid rgba(79, 139, 255, 0.75);
+    border-radius: 26px;
+    box-shadow: 0 0 18px rgba(47, 107, 255, 0.55);
+}
+
+#box { padding: 8px 14px; }
+
+button, image {
+    background: none;
+    border-style: none;
+    box-shadow: none;
+    color: #e6ecff;
+}
+
+button {
+    padding: 6px;
+    margin: 0 3px;
+    border-radius: 14px;
+}
+
+button:hover {
+    background-color: rgba(79, 139, 255, 0.22);
+}
+
+button:focus { box-shadow: none; }
+
+/* point sous les applications ouvertes */
+#active { border-bottom: 3px solid #4f8bff; }
