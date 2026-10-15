@@ -1,0 +1,1 @@
+Corrige phase5_desktop.sh : 1) remplace neofetch par fastfetch, 2) installe les paquets essentiels (hyprland, waybar, kitty, sddm) dans une commande, puis les paquets optionnels un par un avec || echo pour qu'un échec ne bloque pas le script

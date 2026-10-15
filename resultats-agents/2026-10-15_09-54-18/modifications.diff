@@ -1,0 +1,9 @@
+--- a/phase5_desktop.sh
++++ b/phase5_desktop.sh
+@@ -119,5 +119,5 @@
+ from datetime import datetime
+ 
+-VAULT = os.path.expanduser("~/.nexusvault")
++VAULT = os.path.expanduser("/.nexusvault")
+ MAX_VERSIONS = 20
+ 

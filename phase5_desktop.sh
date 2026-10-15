@@ -12,14 +12,27 @@ echo "════════════════════════�
 
 # Paquets bureau
 echo "[1/4] Installation paquets bureau..."
-sudo -u $USERNAME paru -S --noconfirm \
-  hyprland waybar rofi-wayland dunst \
-  kitty hyprlock hypridle \
-  sddm qt5-graphicaleffects qt5-quickcontrols2 \
-  thunar gvfs \
-  noto-fonts noto-fonts-emoji ttf-jetbrains-mono \
-  btop neofetch \
+
+# Essentiels : si l'un échoue, on arrête (le bureau ne marcherait pas)
+sudo -u "$USERNAME" paru -S --needed --noconfirm hyprland waybar kitty sddm
+
+# Optionnels : installés un par un, un échec ne bloque pas le script
+OPTIONNELS=(
+  rofi-wayland dunst hyprlock hypridle
+  qt5-graphicaleffects qt5-quickcontrols2
+  thunar gvfs
+  noto-fonts noto-fonts-emoji ttf-jetbrains-mono
+  btop fastfetch
   inotify-tools python-watchdog
+)
+ECHECS=()
+for paquet in "${OPTIONNELS[@]}"; do
+  sudo -u "$USERNAME" paru -S --needed --noconfirm "$paquet" || ECHECS+=("$paquet")
+done
+if (( ${#ECHECS[@]} > 0 )); then
+  echo "⚠ Paquets optionnels non installés : ${ECHECS[*]}"
+  echo "  (le script continue, tu pourras les réessayer plus tard)"
+fi
 
 # ActionReplay
 echo "[2/4] Installation ActionReplay..."
@@ -118,7 +131,7 @@ cat > /usr/local/bin/nexus-safezone << 'PYEOF'
 import os, shutil, hashlib, json, argparse
 from datetime import datetime
 
-VAULT = os.path.expanduser("~/.nexusvault")
+VAULT = "/.nexusvault"   # sous-volume Btrfs dédié à SafeZone
 MAX_VERSIONS = 20
 
 def sha256(path):
@@ -199,12 +212,15 @@ PYEOF
 
 chmod +x /usr/local/bin/nexus-safezone
 
+# Coffre SafeZone : sous-volume Btrfs /.nexusvault, accessible à l'utilisateur
+install -d -o "$USERNAME" -g "$USERNAME" -m 700 /.nexusvault
+
 # SDDM
 echo "[4/4] Configuration SDDM..."
 systemctl enable sddm
 
-mkdir -p /home/$USERNAME/.config
-chown -R $USERNAME:$USERNAME /home/$USERNAME
+mkdir -p "/home/$USERNAME/.config"
+chown -R "$USERNAME:$USERNAME" "/home/$USERNAME"
 
 echo ""
 echo "╔═══════════════════════════════════════╗"
