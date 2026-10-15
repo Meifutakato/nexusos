@@ -50,6 +50,12 @@ find . -type f | while read -r f; do
     echo "    ${cible/#$MAISON/\~}"
 done
 
+# Hyprland 0.5x lit hyprland.lua en priorité s'il existe : on le met de côté
+if [[ -f "$CONF/hypr/hyprland.lua" ]]; then
+    mv "$CONF/hypr/hyprland.lua" "$CONF/hypr/hyprland.lua.avant-theme-nexusos"
+    echo "    hyprland.lua mis de côté (sinon il remplacerait hyprland.conf)"
+fi
+
 etape "[5/7] Réglages propres à cette machine"
 MACHINE="$CONF/hypr/machine.conf"
 {
