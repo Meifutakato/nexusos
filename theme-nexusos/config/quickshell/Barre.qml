@@ -121,7 +121,7 @@ PanelWindow {
             anchors { fill: parent; leftMargin: 12; rightMargin: 24 }
             spacing: 14
 
-            // Bouton menu NexusOS (4 carrés)
+            // Bouton menu : logo NexusOS
             Rectangle {
                 id: boutonMenu
                 Layout.preferredWidth: 46
@@ -130,22 +130,14 @@ PanelWindow {
                 color: zoneMenu.containsMouse ? barre.cSurvol : "transparent"
                 Behavior on color { ColorAnimation { duration: 120 } }
 
-                Grid {
+                Image {
                     anchors.centerIn: parent
-                    columns: 2
-                    spacing: 3
-                    scale: zoneMenu.pressed ? 0.88 : 1
-                    Behavior on scale { NumberAnimation { duration: 90 } }
-                    Repeater {
-                        model: 4
-                        Rectangle {
-                            width: 13; height: 13; radius: 3
-                            gradient: Gradient {
-                                GradientStop { position: 0.0; color: "#6aa8ff" }
-                                GradientStop { position: 1.0; color: "#2f6bff" }
-                            }
-                        }
-                    }
+                    width: 36; height: 36
+                    sourceSize: Qt.size(72, 72)
+                    source: Etat.logo
+                    smooth: true
+                    scale: zoneMenu.pressed ? 0.88 : (zoneMenu.containsMouse ? 1.08 : 1)
+                    Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutBack } }
                 }
                 MouseArea {
                     id: zoneMenu

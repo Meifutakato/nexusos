@@ -183,26 +183,31 @@ PanelWindow {
             }
 
             // Texte : état + nom du réseau
-            Column {
+            Item {
                 Layout.alignment: Qt.AlignVCenter
-                Text {
-                    text: haut.etatReseau === "connecte" ? "Connecté"
-                        : (haut.etatReseau === "connexion" ? "Connexion en cours…" : "Hors ligne")
-                    font.family: Etat.police
-                    font.pixelSize: 12
-                    font.weight: Font.DemiBold
-                    color: Etat.cTexte
-                }
-                Text {
-                    text: haut.typeReseau === "wifi" ? "Wi-Fi" + (haut.nomReseau ? " · " + haut.nomReseau : "")
-                        : (haut.typeReseau === "ethernet" ? "Ethernet" + (haut.nomReseau ? " · " + haut.nomReseau : "")
-                        : "Aucun réseau")
-                    font.family: Etat.police
-                    font.pixelSize: 10
-                    color: Etat.cDiscret
+                implicitWidth: textesReseau.implicitWidth
+                implicitHeight: textesReseau.implicitHeight
+                Column {
+                    id: textesReseau
+                    Text {
+                        text: haut.etatReseau === "connecte" ? "Connecté"
+                            : (haut.etatReseau === "connexion" ? "Connexion en cours…" : "Hors ligne")
+                        font.family: Etat.police
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        color: Etat.cTexte
+                    }
+                    Text {
+                        text: haut.typeReseau === "wifi" ? "Wi-Fi" + (haut.nomReseau ? " · " + haut.nomReseau : "")
+                            : (haut.typeReseau === "ethernet" ? "Ethernet" + (haut.nomReseau ? " · " + haut.nomReseau : "")
+                            : "Aucun réseau")
+                        font.family: Etat.police
+                        font.pixelSize: 10
+                        color: Etat.cDiscret
+                    }
                 }
                 MouseArea {
-                    width: parent.width; height: parent.height
+                    anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Etat.lancer(["sh", "-c", "command -v nm-connection-editor >/dev/null && exec nm-connection-editor || exec kitty -e nmtui"])
                 }

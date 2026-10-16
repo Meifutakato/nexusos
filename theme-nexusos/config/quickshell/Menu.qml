@@ -45,7 +45,14 @@ PanelWindow {
     onVisibleChanged: {
         if (visible) {
             champ.text = "";
-            page = "accueil";
+            if (Etat.pageDemandee !== "") {
+                page = Etat.pageDemandee;
+                categorie = Etat.categorieDemandee;
+                titrePage = Etat.titreDemande;
+                Etat.pageDemandee = "";
+            } else {
+                page = "accueil";
+            }
             alimentationOuverte = false;
             fichierRecents.reload();
             boite.opacity = 0;
@@ -408,7 +415,7 @@ PanelWindow {
                     EntreeGauche {
                         glyphe: ""; libelle: "Paramètres"
                         onClique: {
-                            Etat.lancer(["notify-send", "NexusOS", "Les Paramètres NexusOS arrivent bientôt."]);
+                            Etat.bientot("Les Paramètres NexusOS");
                             Etat.menuOuvert = false;
                         }
                     }

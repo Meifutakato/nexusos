@@ -66,3 +66,11 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
 - Les informations viennent de `config/quickshell/etat.sh` (relu toutes les 3 secondes).
 - Waybar reste installé : pour y revenir, ajouter `exec-once = waybar` dans hyprland.conf
   et retirer `Haut {}` de `config/quickshell/shell.qml`.
+
+## Icônes de bureau, logo et écran de connexion
+
+- Icônes à gauche (double-clic) : Ce PC, Corbeille, Dossiers perso, Cloud (bientôt), Paramètres (bientôt),
+  NexusOS (infos système), Jeux, Applications. Liste dans `config/quickshell/Bureau.qml`.
+- Logo NexusOS : `logos/nexusos.svg` (version « Orbite »), aussi sur le bouton du menu.
+- Écran de connexion : `sddm/nexusos/` installé dans `/usr/share/sddm/themes/nexusos`.
+  Revenir à l'ancien : `sudo rm /etc/sddm.conf.d/10-nexusos.conf` puis redémarrer.

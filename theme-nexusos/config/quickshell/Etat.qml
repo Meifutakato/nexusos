@@ -9,6 +9,25 @@ Singleton {
     property bool menuOuvert: false
     function basculerMenu() { menuOuvert = !menuOuvert; }
 
+    // Ouvrir le menu directement sur une page ("applications" ou "categorie")
+    property string pageDemandee: ""
+    property string categorieDemandee: ""
+    property string titreDemande: ""
+    function ouvrirMenuSur(page, categorie, titre) {
+        pageDemandee = page;
+        categorieDemandee = categorie || "";
+        titreDemande = titre || "";
+        menuOuvert = true;
+    }
+
+    // Logo NexusOS
+    readonly property string logo: "file://" + Quickshell.env("HOME") + "/.config/quickshell/nexusos.svg"
+
+    // Message « bientôt disponible »
+    function bientot(quoi) {
+        lancer(["notify-send", "NexusOS", quoi + " arrive bientôt."]);
+    }
+
     // Applications techniques à ne jamais montrer (nom du .desktop sans « .desktop »)
     readonly property var masquees: [
         "avahi-discover", "bssh", "bvnc", "qv4l2", "qvidcap", "xgps", "xgpsspeed",

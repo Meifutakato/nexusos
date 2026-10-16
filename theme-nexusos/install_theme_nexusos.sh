@@ -30,7 +30,7 @@ pacman -S --needed --noconfirm waybar rofi kitty dunst hyprlock swaybg \
     grim slurp wl-clipboard ttf-jetbrains-mono-nerd noto-fonts papirus-icon-theme
 # Optionnels : un échec ne bloque pas
 ECHECS=()
-for p in pavucontrol thunar xdg-user-dirs xdg-utils libnotify; do
+for p in pavucontrol thunar xdg-user-dirs xdg-utils libnotify gvfs qt6-svg fastfetch; do
     pacman -S --needed --noconfirm "$p" || ECHECS+=("$p")
 done
 # Quickshell : dessine la barre du bas (dépôts officiels, sinon AUR via paru)
@@ -38,8 +38,10 @@ pacman -S --needed --noconfirm quickshell \
     || sudo -u "$USERNAME" paru -S --needed --noconfirm quickshell \
     || ECHECS+=("quickshell")
 
-etape "[3/7] Fond d'écran"
+etape "[3/7] Fond d'écran et logo NexusOS"
 install -Dm644 "$ICI/fonds/galaxie-nexus.jpg" /usr/share/backgrounds/nexusos/galaxie-nexus.jpg
+install -Dm644 "$ICI/logos/nexusos.svg" /usr/share/pixmaps/nexusos.svg
+install -Dm644 "$ICI/logos/nexusos.svg" /usr/share/icons/hicolor/scalable/apps/nexusos.svg
 
 etape "[4/7] Configuration (anciens fichiers sauvegardés en .avant-theme-nexusos)"
 cd "$ICI/config"
@@ -85,7 +87,18 @@ sudo -u "$USERNAME" env LANG=fr_FR.UTF-8 xdg-user-dirs-update --force 2>/dev/nul
 etape "[6/7] Droits des fichiers"
 chown -R "$USERNAME:$USERNAME" "$CONF" "$MAISON/.cache"
 
-etape "[7/7] Écran de connexion"
+etape "[7/7] Écran de connexion NexusOS"
+rm -rf /usr/share/sddm/themes/nexusos
+install -d /usr/share/sddm/themes/nexusos
+install -m644 "$ICI"/sddm/nexusos/* /usr/share/sddm/themes/nexusos/
+install -d /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/10-nexusos.conf << 'EOF_SDDM'
+# Écran de connexion NexusOS — pour revenir à l'ancien : supprimer ce fichier
+[Theme]
+Current=nexusos
+EOF_SDDM
+# Clavier français sur l'écran de connexion
+localectl set-x11-keymap fr 2>/dev/null || true
 systemctl enable sddm.service
 
 echo

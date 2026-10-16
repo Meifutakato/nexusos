@@ -15,6 +15,10 @@ ShellRoot {
         model: Quickshell.screens
         Haut {}
     }
+    Variants {
+        model: Quickshell.screens
+        Bureau {}
+    }
 
     Menu {}
 

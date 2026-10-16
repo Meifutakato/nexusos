@@ -1,0 +1,11 @@
+[SddmGreeterTheme]
+Name=NexusOS
+Description=Écran de connexion NexusOS
+Author=NexusOS
+Version=1.0
+Type=sddm-theme
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=nexusos
+Theme-API=2.0
+QtVersion=6
