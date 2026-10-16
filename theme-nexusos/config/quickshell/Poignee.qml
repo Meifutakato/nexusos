@@ -44,7 +44,9 @@ PanelWindow {
     implicitHeight: 96
     margins {
         left: Math.max(0, Math.round(poignee.fx + poignee.fl / 2 - poignee.implicitWidth / 2))
-        top: Math.max(0, Math.round(poignee.fy + 3))
+        // dans l'espace libre au-dessus de la fenêtre (ne cache pas son contenu) ;
+        // s'il n'y a pas la place (fenêtre agrandie), juste à l'intérieur du bord
+        top: Math.max(0, Math.round(poignee.fy >= 70 ? poignee.fy - 16 : poignee.fy + 1))
     }
 
     // Seules les zones visibles reçoivent les clics (le reste passe à la fenêtre dessous)
@@ -52,8 +54,8 @@ PanelWindow {
 
     // Mise à jour de la position (Hyprland ne signale pas tous les déplacements)
     Timer {
-        interval: 350; repeat: true
-        running: Hyprland.activeToplevel !== null
+        interval: 500; repeat: true
+        running: Hyprland.activeToplevel !== null && !Etat.menuOuvert
         onTriggered: Hyprland.refreshToplevels()
     }
     Connections {
@@ -112,26 +114,26 @@ PanelWindow {
     // ── Dessin ──────────────────────────────────────────────────
     Item {
         id: zoneCliquable
-        x: poignee.ouverte ? pastille.x : points.x
-        y: points.y
-        width: poignee.ouverte ? pastille.width : points.width
-        height: poignee.ouverte ? pastille.y + pastille.height - points.y : points.height
+        x: poignee.ouverte ? pastille.x : points.x - 3
+        y: points.y - 3
+        width: poignee.ouverte ? pastille.width : points.width + 6
+        height: poignee.ouverte ? pastille.y + pastille.height - points.y + 3 : points.height + 6
     }
 
     // Les trois points
     Rectangle {
         id: points
-        anchors { top: parent.top; horizontalCenter: parent.horizontalCenter }
-        width: 46; height: 16; radius: 8
-        color: zonePoints.containsMouse || poignee.ouverte ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(0, 0, 0, 0.22)
+        anchors { top: parent.top; topMargin: 3; horizontalCenter: parent.horizontalCenter }
+        width: 40; height: 12; radius: 6
+        color: zonePoints.containsMouse || poignee.ouverte ? Qt.rgba(79/255, 139/255, 1, 0.35) : Qt.rgba(0, 0, 0, 0.18)
         Behavior on color { ColorAnimation { duration: 120 } }
         Row {
             anchors.centerIn: parent
-            spacing: 5
+            spacing: 4
             Repeater {
                 model: 3
                 Rectangle {
-                    width: 6; height: 6; radius: 3
+                    width: 5; height: 5; radius: 2.5
                     color: zonePoints.containsMouse || poignee.ouverte ? "#d7dbe3" : "#9ba1ab"
                 }
             }
@@ -139,6 +141,7 @@ PanelWindow {
         MouseArea {
             id: zonePoints
             anchors.fill: parent
+            anchors.margins: -3
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: poignee.ouverte = !poignee.ouverte

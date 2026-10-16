@@ -1,0 +1,35 @@
+// NexusOS — infos système (fastfetch), logo « Orbite »
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "type": "file",
+    "source": "~/.config/fastfetch/nexusos.txt",
+    "color": { "1": "blue", "2": "magenta", "3": "white" },
+    "padding": { "top": 1, "left": 2, "right": 3 }
+  },
+  "display": {
+    "separator": "  ",
+    "color": { "keys": "blue", "title": "magenta" }
+  },
+  "modules": [
+    "title",
+    "separator",
+    { "type": "os", "key": "Système", "format": "NexusOS (base Arch Linux) {arch}" },
+    { "type": "kernel", "key": "Noyau" },
+    { "type": "uptime", "key": "Allumé depuis" },
+    { "type": "packages", "key": "Paquets" },
+    { "type": "wm", "key": "Bureau" },
+    { "type": "display", "key": "Écran" },
+    { "type": "theme", "key": "Thème" },
+    { "type": "icons", "key": "Icônes" },
+    { "type": "terminal", "key": "Terminal" },
+    { "type": "cpu", "key": "Processeur" },
+    { "type": "gpu", "key": "Graphique" },
+    { "type": "memory", "key": "Mémoire" },
+    { "type": "disk", "key": "Disque" },
+    { "type": "localip", "key": "Adresse IP" },
+    { "type": "battery", "key": "Batterie" },
+    "break",
+    "colors"
+  ]
+}

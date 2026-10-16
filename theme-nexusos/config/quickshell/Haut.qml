@@ -1,5 +1,6 @@
 // NexusOS — barre du haut : bureaux à gauche,
-// îlot d'état au centre (réseau, Bluetooth, USB, volume, batterie), date à droite.
+// îlot d'état au centre (réseau, Bluetooth, USB, volume, batterie).
+// La date et l'heure sont dans la barre du bas.
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -61,7 +62,6 @@ PanelWindow {
     }
     function rafraichir() { sonde.running = true; }
 
-    SystemClock { id: horloge; precision: SystemClock.Minutes }
 
     // Glyphes (police Nerd Font)
     readonly property string gEthernet: String.fromCodePoint(0xF0200)
@@ -288,26 +288,6 @@ PanelWindow {
                 haut.rafraichir();
             }
             onClicked: Etat.lancer(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
-        }
-    }
-
-    // ── Droite : date et heure ──────────────────────────────────
-    Row {
-        anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-        spacing: 12
-        Text {
-            property string jour: horloge.date.toLocaleDateString(Qt.locale("fr_FR"), "ddd d MMM")
-            text: jour.charAt(0).toUpperCase() + jour.slice(1)
-            font.family: Etat.police
-            font.pixelSize: 14
-            color: Etat.cTexte
-        }
-        Text {
-            text: Qt.formatTime(horloge.date, "HH:mm")
-            font.family: Etat.police
-            font.pixelSize: 14
-            font.weight: Font.DemiBold
-            color: Etat.cTexte
         }
     }
 }

@@ -74,6 +74,9 @@ MACHINE="$CONF/hypr/machine.conf"
         echo "    no_hardware_cursors = true"
         echo "}"
         echo "exec-once = VBoxClient --clipboard"
+        echo "# Résolution de l'écran de la VM (VirtualBox ne l'ajuste pas tout seul sous Wayland)."
+        echo "# Autres choix possibles : 1600x900, 1366x768, 2560x1440"
+        echo "monitor = , 1920x1080@60, auto, 1"
         echo "    VirtualBox détecté : réglages ajoutés" >&2
     fi
 } > "$MACHINE"

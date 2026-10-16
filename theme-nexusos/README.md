@@ -74,3 +74,14 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
 - Logo NexusOS : `logos/nexusos.svg` (version « Orbite »), aussi sur le bouton du menu.
 - Écran de connexion : `sddm/nexusos/` installé dans `/usr/share/sddm/themes/nexusos`.
   Revenir à l'ancien : `sudo rm /etc/sddm.conf.d/10-nexusos.conf` puis redémarrer.
+
+## Divers
+
+- Infos système (`fastfetch`, icône NexusOS du bureau) : nom NexusOS et logo Orbite, `config/fastfetch/`.
+- Résolution de la VM : ligne `monitor` dans `~/.config/hypr/machine.conf` (1920x1080 par défaut).
+- Les trois points de la poignée sont dans l'espace au-dessus de la fenêtre, pour ne pas cacher son contenu.
+
+## Infos système (icône NexusOS)
+
+- fastfetch avec le logo Orbite en caractères et « NexusOS (base Arch Linux) » :
+  `config/fastfetch/config.jsonc` et `config/fastfetch/nexusos.txt`.
