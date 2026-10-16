@@ -1,4 +1,4 @@
-// NexusOS — barre du haut : boutons de fenêtre et bureaux à gauche,
+// NexusOS — barre du haut : bureaux à gauche,
 // îlot d'état au centre (réseau, Bluetooth, USB, volume, batterie), date à droite.
 import Quickshell
 import Quickshell.Wayland
@@ -78,33 +78,6 @@ PanelWindow {
         return volume < 50 ? "" : "";
     }
 
-    // Petit bouton rond (fermer / réduire / agrandir)
-    component BoutonFenetre: Rectangle {
-        id: bf
-        property color teinte
-        property string symbole
-        property string action
-        width: 14; height: 14; radius: 7
-        color: zoneBf.containsMouse ? Qt.lighter(teinte, 1.15) : teinte
-        Text {
-            anchors.centerIn: parent
-            visible: zoneBf.containsMouse
-            text: bf.symbole
-            font.family: Etat.police
-            font.pixelSize: 11
-            font.weight: Font.Bold
-            color: Qt.rgba(0, 0, 0, 0.6)
-        }
-        MouseArea {
-            id: zoneBf
-            anchors.fill: parent
-            anchors.margins: -4
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: Hyprland.dispatch(bf.action)
-        }
-    }
-
     // Icône de l'îlot
     component IconeIlot: Text {
         font.family: Etat.icones
@@ -113,16 +86,12 @@ PanelWindow {
         Layout.alignment: Qt.AlignVCenter
     }
 
-    // ── Gauche : boutons de la fenêtre active + bureaux ─────────
+    // ── Gauche : bureaux ────────────────────────────────────────
     Row {
-        anchors { left: parent.left; leftMargin: 6; verticalCenter: parent.verticalCenter }
+        anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
         spacing: 9
 
-        BoutonFenetre { teinte: "#ff5f57"; symbole: "×"; action: "killactive" }
-        BoutonFenetre { teinte: "#febc2e"; symbole: "−"; action: "movetoworkspacesilent special:reduites" }
-        BoutonFenetre { teinte: "#28c840"; symbole: "+"; action: "fullscreen 1" }
 
-        Item { width: 10; height: 1 }
 
         Repeater {
             model: 4

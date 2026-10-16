@@ -18,6 +18,9 @@ ShellRoot {
 
     Menu {}
 
+    // Trois points sur la fenêtre active (façon HyperOS)
+    Poignee {}
+
     // Commande pour les raccourcis clavier :
     //   quickshell ipc call menu basculer
     IpcHandler {

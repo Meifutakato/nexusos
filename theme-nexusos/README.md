@@ -5,7 +5,7 @@ Bleu nuit, verre translucide, lueur bleue. Inspiré de la maquette de Wylan.
 | Élément | Outil | Fichier |
 |---|---|---|
 | Fenêtres, animations, raccourcis | Hyprland | `config/hypr/hyprland.conf` |
-| Barre du haut : boutons de fenêtre, bureaux, îlot, heure | Quickshell | `config/quickshell/Haut.qml` |
+| Barre du haut : bureaux, îlot, heure | Quickshell | `config/quickshell/Haut.qml` |
 | Menu de démarrage (Super+Espace) | rofi | `config/rofi/nexusos.rasi` |
 | Barre du bas (menu, recherche, applications, heure) | Quickshell | `config/quickshell/Barre.qml` (applications épinglées en haut du fichier) |
 | Terminal | kitty | `config/kitty/kitty.conf` |
@@ -50,10 +50,11 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
   applications masquées dans `config/quickshell/Etat.qml`.
 - Ouvrir depuis un raccourci : `quickshell ipc call menu basculer`.
 
-## Fenêtres
+## Fenêtres (façon HyperOS)
 
-- En haut à gauche : ● rouge = fermer, ● jaune = réduire, ● vert = agrandir / rétablir (fenêtre active) ; puis les 4 bureaux.
-- Une fenêtre réduite revient en cliquant sur son icône dans la barre du bas.
+- Trois points en haut au centre de la fenêtre active. Un clic ouvre une pastille :
+  plein écran · moitié gauche · moitié droite · petite fenêtre flottante · fermer.
+  Le bouton du mode actuel est allumé en bleu. « Plein écran » sur une fenêtre flottante la remet en place.
 - Clavier : Super+Q fermer, Super+F plein écran, Super+V fenêtre flottante (déplaçable avec Super + clic gauche).
 - Applications GTK (gestionnaire de fichiers…) en mode sombre : `config/gtk-3.0/settings.ini`.
 
