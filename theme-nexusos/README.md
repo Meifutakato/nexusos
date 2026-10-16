@@ -35,8 +35,17 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
 
 ## Barre du bas (Quickshell)
 
-- Bouton NexusOS et champ « Rechercher » : ouvrent le menu des applications (le vrai menu Démarrer arrive à l'étape 2).
+- Bouton NexusOS, champ « Rechercher » ou Super+Espace : ouvrent le menu Démarrer.
 - Clic sur une application : l'ouvre, ou affiche sa fenêtre si elle est déjà ouverte (trait bleu dessous).
 - Voir les erreurs : ouvrir un terminal dans la VM et taper `pkill quickshell; quickshell`.
 - Revenir à l'ancien dock :
   `sed -i 's/^exec-once = quickshell$/exec-once = nwg-dock-hyprland -x -i 40 -mb 14/' ~/.config/hypr/hyprland.conf` puis redémarrer.
+
+## Menu Démarrer (Quickshell)
+
+- Recherche : taper directement, Entrée lance le premier résultat, Échap ferme.
+- Accueil : Épinglé (12 applications), Récents (fichiers ouverts récemment), Recommandé (Jeux, Création, Bureau).
+- À gauche : Applications, dossiers personnels, Alimentation (verrouiller, déconnexion, redémarrer, éteindre).
+- Réglages en haut de `config/quickshell/Menu.qml` (applications épinglées, cartes recommandées) ;
+  applications masquées dans `config/quickshell/Etat.qml`.
+- Ouvrir depuis un raccourci : `quickshell ipc call menu basculer`.

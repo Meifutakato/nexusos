@@ -20,7 +20,6 @@ PanelWindow {
         "kitty", "discord", "steam", "spotify",
         "com.heroicgameslauncher.hgl", "org.pulseaudio.pavucontrol"
     ]
-    property string commandeMenu: Quickshell.env("HOME") + "/.config/rofi/nexusos.rasi"
 
     // Palette NexusOS
     readonly property color cFond:    Qt.rgba(6/255, 12/255, 34/255, 0.78)
@@ -43,9 +42,7 @@ PanelWindow {
     color: "transparent"
 
     // ── Outils ──────────────────────────────────────────────────
-    function ouvrirMenu() {
-        Quickshell.execDetached(["rofi", "-show", "drun", "-theme", barre.commandeMenu]);
-    }
+    function ouvrirMenu() { Etat.basculerMenu(); }
 
     function minuscule(t) { return t ? String(t).toLowerCase() : ""; }
 

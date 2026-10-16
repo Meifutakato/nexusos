@@ -30,7 +30,7 @@ pacman -S --needed --noconfirm waybar rofi kitty dunst hyprlock swaybg \
     grim slurp wl-clipboard ttf-jetbrains-mono-nerd noto-fonts papirus-icon-theme
 # Optionnels : un échec ne bloque pas
 ECHECS=()
-for p in pavucontrol thunar; do
+for p in pavucontrol thunar xdg-user-dirs xdg-utils libnotify; do
     pacman -S --needed --noconfirm "$p" || ECHECS+=("$p")
 done
 # Quickshell : dessine la barre du bas (dépôts officiels, sinon AUR via paru)
@@ -78,6 +78,9 @@ MACHINE="$CONF/hypr/machine.conf"
 
 # Les applications épinglées se règlent dans ~/.config/quickshell/Barre.qml
 mkdir -p "$MAISON/.cache"
+
+# Dossiers personnels en français (Documents, Images, Musique, Vidéos, Téléchargements)
+sudo -u "$USERNAME" env LANG=fr_FR.UTF-8 xdg-user-dirs-update --force 2>/dev/null || true
 
 etape "[6/7] Droits des fichiers"
 chown -R "$USERNAME:$USERNAME" "$CONF" "$MAISON/.cache"
