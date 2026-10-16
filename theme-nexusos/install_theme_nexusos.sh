@@ -33,8 +33,10 @@ ECHECS=()
 for p in pavucontrol thunar; do
     pacman -S --needed --noconfirm "$p" || ECHECS+=("$p")
 done
-# Le dock (dépôts officiels ou AUR, selon la version) : via paru, en tant qu'utilisateur
-sudo -u "$USERNAME" paru -S --needed --noconfirm nwg-dock-hyprland || ECHECS+=("nwg-dock-hyprland")
+# Quickshell : dessine la barre du bas (dépôts officiels, sinon AUR via paru)
+pacman -S --needed --noconfirm quickshell \
+    || sudo -u "$USERNAME" paru -S --needed --noconfirm quickshell \
+    || ECHECS+=("quickshell")
 
 etape "[3/7] Fond d'écran"
 install -Dm644 "$ICI/fonds/galaxie-nexus.jpg" /usr/share/backgrounds/nexusos/galaxie-nexus.jpg
@@ -60,6 +62,7 @@ etape "[5/7] Réglages propres à cette machine"
 MACHINE="$CONF/hypr/machine.conf"
 {
     echo "# Généré par install_theme_nexusos.sh — réglages de cette machine"
+    echo "env = LANG,fr_FR.UTF-8"
     if [[ "$(systemd-detect-virt 2>/dev/null || true)" == "oracle" ]]; then
         echo "# VirtualBox détecté : rendu logiciel (sinon écran noir)"
         echo "env = WLR_RENDERER_ALLOW_SOFTWARE,1"
@@ -73,13 +76,8 @@ MACHINE="$CONF/hypr/machine.conf"
     fi
 } > "$MACHINE"
 
-# Applications épinglées dans le dock (seulement celles qui existent)
-EPINGLES=()
-for app in thunar kitty firefox steam discord org.pulseaudio.pavucontrol; do
-    if [[ -f "/usr/share/applications/$app.desktop" ]]; then EPINGLES+=("$app"); fi
-done
+# Les applications épinglées se règlent dans ~/.config/quickshell/Barre.qml
 mkdir -p "$MAISON/.cache"
-printf '%s\n' "${EPINGLES[@]}" > "$MAISON/.cache/nwg-dock-pinned"
 
 etape "[6/7] Droits des fichiers"
 chown -R "$USERNAME:$USERNAME" "$CONF" "$MAISON/.cache"
