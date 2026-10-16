@@ -81,6 +81,38 @@ MACHINE="$CONF/hypr/machine.conf"
     fi
 } > "$MACHINE"
 
+# Effets allégés (en option) : dans VirtualBox, tout le dessin passe par le processeur.
+# Pour les activer :  NEXUS_ALLEGER=1 bash install_theme_nexusos.sh
+ALLEGEMENT="$CONF/hypr/allegement.conf"
+if [[ "${NEXUS_ALLEGER:-0}" == "1" && "$(systemd-detect-virt 2>/dev/null || true)" == "oracle" ]]; then
+    cat > "$ALLEGEMENT" << 'EOF_ALLEGE'
+# Généré par install_theme_nexusos.sh — VirtualBox : effets allégés pour la fluidité
+# (sur un vrai PC avec carte graphique, ce fichier reste vide)
+decoration {
+    blur {
+        size = 5
+        passes = 1
+        xray = true
+    }
+    shadow {
+        enabled = false
+    }
+}
+animations {
+    bezier = rapide, 0.25, 1, 0.5, 1
+    animation = windows, 1, 3, rapide
+    animation = fade, 1, 3, rapide
+    animation = workspaces, 1, 3, rapide
+}
+misc {
+    vfr = true
+}
+EOF_ALLEGE
+    echo "    VirtualBox : effets allégés (flou léger, sans ombres, animations courtes)"
+else
+    echo "# Généré par install_theme_nexusos.sh — effets complets (NEXUS_ALLEGER=1 pour les alléger)" > "$ALLEGEMENT"
+fi
+
 # Les applications épinglées se règlent dans ~/.config/quickshell/Barre.qml
 mkdir -p "$MAISON/.cache"
 

@@ -85,3 +85,13 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
 
 - fastfetch avec le logo Orbite en caractères et « NexusOS (base Arch Linux) » :
   `config/fastfetch/config.jsonc` et `config/fastfetch/nexusos.txt`.
+
+## Fluidité dans VirtualBox
+
+- En option, effets allégés dans VirtualBox (flou léger, sans ombres, animations courtes) :
+  `NEXUS_ALLEGER=1 bash install_theme_nexusos.sh`. Sans cette option, effets complets.
+- Gestion de la mémoire (zram, earlyoom) : `outils/optimisation_memoire.sh` à la racine du dépôt.
+
+## Icônes du bureau
+
+- Dessinées pour NexusOS (dégradés bleu/violet) : `config/quickshell/icones/*.svg`.

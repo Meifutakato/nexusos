@@ -54,7 +54,7 @@ PanelWindow {
 
     // Mise à jour de la position (Hyprland ne signale pas tous les déplacements)
     Timer {
-        interval: 500; repeat: true
+        interval: 1000; repeat: true
         running: Hyprland.activeToplevel !== null && !Etat.menuOuvert
         onTriggered: Hyprland.refreshToplevels()
     }

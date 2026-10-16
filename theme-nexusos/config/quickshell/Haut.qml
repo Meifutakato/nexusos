@@ -57,7 +57,7 @@ PanelWindow {
         stdout: SplitParser { onRead: data => haut.lire(data) }
     }
     Timer {
-        interval: 3000; running: true; repeat: true
+        interval: 5000; running: true; repeat: true
         onTriggered: sonde.running = true
     }
     function rafraichir() { sonde.running = true; }

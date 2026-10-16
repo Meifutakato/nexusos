@@ -2,7 +2,6 @@
 // Double-clic pour ouvrir, comme sous Windows.
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Widgets
 import QtQuick
 
 PanelWindow {
@@ -26,14 +25,14 @@ PanelWindow {
 
     // ── Les icônes : modifier cette liste pour en ajouter ou en retirer ──
     property var icones: [
-        { nom: "Ce PC",          icone: "computer",           action: "pc" },
-        { nom: "Corbeille",      icone: "user-trash",         action: "corbeille" },
-        { nom: "Dossiers perso", icone: "folder-blue",        action: "perso" },
-        { nom: "Cloud",          icone: "folder-cloud",       action: "cloud" },
-        { nom: "Paramètres",     icone: "preferences-system", action: "parametres" },
-        { nom: "NexusOS",        icone: "",                   action: "nexusos" },
-        { nom: "Jeux",           icone: "applications-games", action: "jeux" },
-        { nom: "Applications",   icone: "view-app-grid",      action: "applications" }
+        { nom: "Ce PC",          icone: "pc",           action: "pc" },
+        { nom: "Corbeille",      icone: "corbeille",         action: "corbeille" },
+        { nom: "Dossiers perso", icone: "dossier",        action: "perso" },
+        { nom: "Cloud",          icone: "cloud",       action: "cloud" },
+        { nom: "Paramètres",     icone: "parametres", action: "parametres" },
+        { nom: "NexusOS",        icone: "nexusos",            action: "nexusos" },
+        { nom: "Jeux",           icone: "jeux", action: "jeux" },
+        { nom: "Applications",   icone: "applications",      action: "applications" }
     ]
 
     function agir(action) {
@@ -78,23 +77,15 @@ PanelWindow {
                 }
 
                 // Icône du thème Papirus, ou logo NexusOS
-                IconImage {
-                    id: image
-                    visible: icone.modelData.icone !== ""
-                    anchors { top: parent.top; topMargin: 8; horizontalCenter: parent.horizontalCenter }
-                    implicitSize: 46
-                    source: icone.modelData.icone !== "" ? Quickshell.iconPath(icone.modelData.icone, "folder") : ""
-                    scale: zoneIcone.pressed ? 0.92 : 1
-                    Behavior on scale { NumberAnimation { duration: 90 } }
-                }
+                // Icônes NexusOS dessinées pour le thème (dossier « icones »)
                 Image {
-                    visible: icone.modelData.icone === ""
                     anchors { top: parent.top; topMargin: 8; horizontalCenter: parent.horizontalCenter }
-                    width: 46; height: 46
-                    sourceSize: Qt.size(92, 92)
-                    source: Etat.logo
-                    scale: zoneIcone.pressed ? 0.92 : 1
-                    Behavior on scale { NumberAnimation { duration: 90 } }
+                    width: 48; height: 48
+                    sourceSize: Qt.size(96, 96)
+                    source: "file://" + Quickshell.env("HOME") + "/.config/quickshell/icones/" + icone.modelData.icone + ".svg"
+                    smooth: true
+                    scale: zoneIcone.pressed ? 0.92 : (zoneIcone.containsMouse ? 1.06 : 1)
+                    Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutBack } }
                 }
 
                 // Nom avec une ombre pour rester lisible sur le fond
