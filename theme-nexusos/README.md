@@ -5,7 +5,7 @@ Bleu nuit, verre translucide, lueur bleue. Inspiré de la maquette de Wylan.
 | Élément | Outil | Fichier |
 |---|---|---|
 | Fenêtres, animations, raccourcis | Hyprland | `config/hypr/hyprland.conf` |
-| Îlot central + heure en haut | Waybar | `config/waybar/` |
+| Barre du haut : boutons de fenêtre, bureaux, îlot, heure | Quickshell | `config/quickshell/Haut.qml` |
 | Menu de démarrage (Super+Espace) | rofi | `config/rofi/nexusos.rasi` |
 | Barre du bas (menu, recherche, applications, heure) | Quickshell | `config/quickshell/Barre.qml` (applications épinglées en haut du fichier) |
 | Terminal | kitty | `config/kitty/kitty.conf` |
@@ -49,3 +49,19 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
 - Réglages en haut de `config/quickshell/Menu.qml` (applications épinglées, cartes recommandées) ;
   applications masquées dans `config/quickshell/Etat.qml`.
 - Ouvrir depuis un raccourci : `quickshell ipc call menu basculer`.
+
+## Fenêtres
+
+- En haut à gauche : ● rouge = fermer, ● jaune = réduire, ● vert = agrandir / rétablir (fenêtre active) ; puis les 4 bureaux.
+- Une fenêtre réduite revient en cliquant sur son icône dans la barre du bas.
+- Clavier : Super+Q fermer, Super+F plein écran, Super+V fenêtre flottante (déplaçable avec Super + clic gauche).
+- Applications GTK (gestionnaire de fichiers…) en mode sombre : `config/gtk-3.0/settings.ini`.
+
+## Barre du haut et îlot (Quickshell, remplace Waybar)
+
+- Îlot central : anneau animé pendant la connexion, « Connecté » + nom du réseau, Bluetooth, clé USB, volume, batterie.
+- Clic sur le texte du réseau : réglages réseau. Clic sur le volume : réglages du son.
+  Molette sur la droite de l'îlot : volume ; clic molette : couper / remettre le son.
+- Les informations viennent de `config/quickshell/etat.sh` (relu toutes les 3 secondes).
+- Waybar reste installé : pour y revenir, ajouter `exec-once = waybar` dans hyprland.conf
+  et retirer `Haut {}` de `config/quickshell/shell.qml`.

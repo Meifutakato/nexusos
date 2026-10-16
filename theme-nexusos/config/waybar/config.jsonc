@@ -8,9 +8,26 @@
   "exclusive": true,
   "spacing": 0,
 
-  "modules-left": ["hyprland/workspaces"],
+  "modules-left": ["custom/fermer", "custom/reduire", "custom/agrandir", "hyprland/workspaces"],
   "modules-center": ["network", "bluetooth", "pulseaudio", "battery"],
   "modules-right": ["clock"],
+
+  // Boutons de la fenêtre active (comme sur la maquette)
+  "custom/fermer": {
+    "format": "●",
+    "tooltip-format": "Fermer la fenêtre",
+    "on-click": "hyprctl dispatch killactive"
+  },
+  "custom/reduire": {
+    "format": "●",
+    "tooltip-format": "Réduire (la fenêtre revient en cliquant sur son icône en bas)",
+    "on-click": "hyprctl dispatch movetoworkspacesilent special:reduites"
+  },
+  "custom/agrandir": {
+    "format": "●",
+    "tooltip-format": "Agrandir / rétablir",
+    "on-click": "hyprctl dispatch fullscreen 1"
+  },
 
   "hyprland/workspaces": {
     "format": "{icon}",

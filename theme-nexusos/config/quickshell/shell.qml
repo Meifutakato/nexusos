@@ -1,6 +1,6 @@
 //@ pragma IconTheme Papirus-Dark
 // NexusOS — interface du bureau (Quickshell)
-// Étape 1 : barre du bas.  Étape 2 : menu Démarrer.
+// Barre du haut (îlot), barre du bas, menu Démarrer.
 import Quickshell
 import Quickshell.Io
 import QtQuick
@@ -10,6 +10,10 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
         Barre {}
+    }
+    Variants {
+        model: Quickshell.screens
+        Haut {}
     }
 
     Menu {}

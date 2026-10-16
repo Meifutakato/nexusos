@@ -1,6 +1,7 @@
 // NexusOS — barre du bas : bouton menu, recherche, applications, heure
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
@@ -58,6 +59,22 @@ PanelWindow {
                 return fenetres[i];
         }
         return null;
+    }
+
+    // Affiche une fenêtre ; si elle a été réduite (bouton jaune en haut),
+    // elle est ramenée sur le bureau actuel
+    function montrer(fenetre) {
+        const liste = Hyprland.toplevels ? Hyprland.toplevels.values : [];
+        for (let i = 0; i < liste.length; i++) {
+            const h = liste[i];
+            if (h.wayland === fenetre && h.workspace && String(h.workspace.name).indexOf("special") === 0) {
+                let adresse = String(h.address);
+                if (adresse.indexOf("0x") !== 0) adresse = "0x" + adresse;
+                Hyprland.dispatch("movetoworkspace " + Hyprland.focusedWorkspace.id + ",address:" + adresse);
+                return;
+            }
+        }
+        fenetre.activate();
     }
 
     // Applications affichées : les épinglées, puis les autres fenêtres ouvertes
@@ -234,7 +251,7 @@ PanelWindow {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    if (icone.fenetre) icone.fenetre.activate();
+                                    if (icone.fenetre) barre.montrer(icone.fenetre);
                                     else icone.modelData.execute();
                                 }
                             }

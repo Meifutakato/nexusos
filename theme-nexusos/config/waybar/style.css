@@ -52,3 +52,13 @@ tooltip {
 }
 #workspaces button.active { color: #4f8bff; }
 #workspaces button:hover  { color: #e6ecff; background: transparent; }
+
+/* Boutons de la fenêtre active : fermer, réduire, agrandir */
+#custom-fermer, #custom-reduire, #custom-agrandir {
+    font-size: 15px;
+    padding: 0 3px;
+}
+#custom-fermer   { color: #ff5f57; padding-left: 10px; }
+#custom-reduire  { color: #febc2e; }
+#custom-agrandir { color: #28c840; padding-right: 12px; }
+#custom-fermer:hover, #custom-reduire:hover, #custom-agrandir:hover { color: #ffffff; }
