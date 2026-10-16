@@ -69,7 +69,7 @@ ColumnLayout {
                     spacing: 14
                     IconImage {
                         implicitSize: 32
-                        source: Quickshell.iconPath(ligne.modelData.icon, "application-x-executable")
+                        source: Etat.iconeAppli(ligne.modelData.icon)
                     }
                     Column {
                         Layout.fillWidth: true

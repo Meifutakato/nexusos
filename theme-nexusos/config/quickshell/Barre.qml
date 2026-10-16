@@ -216,7 +216,7 @@ PanelWindow {
                             IconImage {
                                 anchors.centerIn: parent
                                 implicitSize: 36
-                                source: Quickshell.iconPath(icone.modelData.icon, "application-x-executable")
+                                source: Etat.iconeAppli(icone.modelData.icon)
                                 scale: zone.pressed ? 0.9 : (zone.containsMouse ? 1.12 : 1)
                                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             }

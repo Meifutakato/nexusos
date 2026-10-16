@@ -190,7 +190,7 @@ PanelWindow {
             id: iconeTuile
             anchors { top: parent.top; topMargin: 10; horizontalCenter: parent.horizontalCenter }
             implicitSize: 42
-            source: Quickshell.iconPath(tuile.appli.icon, "application-x-executable")
+            source: Etat.iconeAppli(tuile.appli.icon)
             scale: zoneTuile.pressed ? 0.9 : (zoneTuile.containsMouse ? 1.08 : 1)
             Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
         }

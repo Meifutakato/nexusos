@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""NexusOS — reprise de jeu (Super+G) : relance le dernier jeu Steam joué.
+
+nexus-reprise          relance le dernier jeu
+nexus-reprise --info   affiche le dernier jeu (une ligne JSON) sans le lancer
+"""
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+MAISON = Path.home()
+RACINES_STEAM = [MAISON / ".local/share/Steam", MAISON / ".steam/steam",
+                 MAISON / ".var/app/com.valvesoftware.Steam/.local/share/Steam"]
+
+
+def lire_vdf(texte):
+    """Lit le format texte de Valve (KeyValues) en dictionnaires imbriqués."""
+    jetons = re.findall(r'"((?:[^"\\]|\\.)*)"|([{}])', texte)
+    pile = [{}]
+    cle = None
+    for chaine, accolade in jetons:
+        if accolade == "{":
+            nouveau = {}
+            if cle is not None:
+                pile[-1][cle] = nouveau
+            pile.append(nouveau)
+            cle = None
+        elif accolade == "}":
+            if len(pile) > 1:
+                pile.pop()
+            cle = None
+        elif cle is None:
+            cle = chaine
+        else:
+            pile[-1][cle] = chaine
+            cle = None
+    return pile[0]
+
+
+def chercher(d, nom):
+    """Trouve une clé (sans tenir compte des majuscules) à n'importe quelle profondeur."""
+    if not isinstance(d, dict):
+        return None
+    for k, v in d.items():
+        if k.lower() == nom.lower():
+            return v
+    for v in d.values():
+        r = chercher(v, nom)
+        if r is not None:
+            return r
+    return None
+
+
+def nom_du_jeu(racine, appid):
+    for bib in [racine / "steamapps"] + bibliotheques(racine):
+        manifeste = bib / f"appmanifest_{appid}.acf"
+        if manifeste.exists():
+            try:
+                return chercher(lire_vdf(manifeste.read_text(errors="replace")), "name") or ""
+            except OSError:
+                pass
+    return ""
+
+
+def bibliotheques(racine):
+    f = racine / "steamapps/libraryfolders.vdf"
+    res = []
+    try:
+        d = lire_vdf(f.read_text(errors="replace"))
+        for v in (chercher(d, "libraryfolders") or d).values():
+            if isinstance(v, dict) and "path" in v:
+                res.append(Path(v["path"]) / "steamapps")
+    except OSError:
+        pass
+    return res
+
+
+# Outils de Steam qui ne sont pas des jeux (Proton, runtimes…)
+NON_JEUX = re.compile(r"proton|steam linux runtime|steamworks|redistributable", re.I)
+
+
+def dernier_jeu_steam():
+    meilleur = None
+    for racine in RACINES_STEAM:
+        for conf in racine.glob("userdata/*/config/localconfig.vdf"):
+            try:
+                apps = chercher(lire_vdf(conf.read_text(errors="replace")), "apps") or {}
+            except OSError:
+                continue
+            for appid, infos in apps.items():
+                if not isinstance(infos, dict) or not appid.isdigit():
+                    continue
+                try:
+                    quand = int(infos.get("LastPlayed", infos.get("lastplayed", "0")) or 0)
+                except ValueError:
+                    continue
+                if quand and (meilleur is None or quand > meilleur[0]):
+                    nom = nom_du_jeu(racine, appid)
+                    if NON_JEUX.search(nom):
+                        continue
+                    meilleur = (quand, appid, nom)
+    if meilleur:
+        return {"lanceur": "steam", "id": meilleur[1], "nom": meilleur[2] or f"Jeu Steam {meilleur[1]}",
+                "quand": meilleur[0]}
+    return None
+
+
+def notifier(titre, texte=""):
+    if shutil.which("notify-send"):
+        subprocess.Popen(["notify-send", "-a", "NexusOS", "-i", "applications-games", titre, texte])
+
+
+def main():
+    jeu = dernier_jeu_steam()
+    if "--info" in sys.argv:
+        print(json.dumps(jeu or {}, ensure_ascii=False))
+        return
+    if not jeu:
+        notifier("Aucun jeu à reprendre", "Lance un jeu une première fois depuis Steam.")
+        return
+    notifier("Reprise du jeu", jeu["nom"])
+    subprocess.Popen(["steam", f"steam://rungameid/{jeu['id']}"], stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -39,6 +39,17 @@ pacman -S --needed --noconfirm quickshell \
     || sudo -u "$USERNAME" paru -S --needed --noconfirm quickshell \
     || ECHECS+=("quickshell")
 
+# Outils de jeu : ActionReplay (gpu-screen-recorder) et reprise du dernier jeu
+pacman -S --needed --noconfirm gpu-screen-recorder || ECHECS+=("gpu-screen-recorder")
+# L'ancien ShadowRecord (ffmpeg/X11, ne marchait pas sous Wayland) est remplacé
+pkill -f "python3 /usr/local/bin/nexus-shadowrecord" 2>/dev/null || true
+rm -f /etc/systemd/user/nexus-shadowrecord.service /etc/systemd/user/default.target.wants/nexus-shadowrecord.service \
+      "$MAISON/.config/systemd/user/default.target.wants/nexus-shadowrecord.service"
+install -m755 "$ICI"/outils-jeux/nexus-shadowrecord "$ICI"/outils-jeux/nexus-clip-sauve "$ICI"/outils-jeux/nexus-reprise /usr/local/bin/
+if [[ -d /.gameclips ]]; then
+    install -d -o "$USERNAME" -g "$USERNAME" -m 755 /.gameclips/clips
+fi
+
 etape "[3/7] Fond d'écran et logo NexusOS"
 install -Dm644 "$ICI/fonds/galaxie-nexus.jpg" /usr/share/backgrounds/nexusos/galaxie-nexus.jpg
 install -Dm644 "$ICI/logos/nexusos.svg" /usr/share/pixmaps/nexusos.svg

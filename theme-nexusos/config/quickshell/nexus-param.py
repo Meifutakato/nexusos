@@ -280,13 +280,13 @@ def lire_jeux():
             for n in noms)
     lanceurs = [
         {"id": "steam", "nom": "Steam", "installe": installe("steam")},
-        {"id": "com.heroicgameslauncher.hgl", "nom": "Heroic (Epic, GOG)", "installe": installe("heroic", "com.heroicgameslauncher.hgl")},
+        {"id": "heroic", "nom": "Heroic (Epic, GOG)", "installe": installe("heroic", "com.heroicgameslauncher.hgl")},
         {"id": "net.lutris.Lutris", "nom": "Lutris", "installe": installe("lutris", "net.lutris.Lutris")},
     ]
     gamemode = existe("gamemoded")
     _, s = lancer(["systemctl", "--user", "is-active", "gamemoded"])
     clips = ""
-    for c in (Path("/gameclips"), MAISON / "GameClips", MAISON / "Vidéos" / "Clips", MAISON / "Videos"):
+    for c in (Path("/.gameclips/clips"), MAISON / ".gameclips" / "saved", MAISON / "Vidéos" / "Clips"):
         if c.exists():
             clips = str(c)
             break
@@ -522,6 +522,97 @@ ACTIONS = {
     "nepasderanger": act_nepasderanger, "effacer-notifs": act_effacer_notifs, "fond": act_fond,
     "epingles": act_epingles, "hote": act_hote, "snapshot": act_snapshot, "ntp": act_ntp,
 }
+
+
+
+# ─────────────────────────── ACTIONREPLAY ───────────────────────────
+
+FICHIER_REPLAY = CONF_NEXUS / "actionreplay.conf"
+REGLAGES_REPLAY = {
+    "DUREE": {"15", "30", "60", "120", "300"},
+    "QUALITE": {"medium", "high", "very_high", "ultra"},
+    "SON": {"oui", "non"},
+    "IPS": {"30", "60"},
+}
+
+
+def lire_conf_replay():
+    conf = {"ACTIF": "non", "DUREE": "60", "QUALITE": "very_high", "SON": "oui", "IPS": "60", "DOSSIER": ""}
+    try:
+        for ligne in FICHIER_REPLAY.read_text().splitlines():
+            k, _, v = ligne.partition("=")
+            if k.strip() in conf:
+                conf[k.strip()] = v.strip()
+    except OSError:
+        pass
+    return conf
+
+
+def lire_replay():
+    conf = lire_conf_replay()
+    _, etat = lancer(["nexus-shadowrecord", "etat"])
+    dossier = conf["DOSSIER"]
+    if not dossier:
+        for d in (Path("/.gameclips/clips"), MAISON / ".gameclips" / "saved"):
+            if d.is_dir() and os.access(d, os.W_OK):
+                dossier = str(d)
+                break
+        else:
+            code, v = lancer(["xdg-user-dir", "VIDEOS"])
+            v = v.strip() if code == 0 and v.strip().startswith("/") else str(MAISON / "Vidéos")
+            dossier = v + "/Clips"
+    clips = 0
+    try:
+        clips = len([f for f in Path(dossier).iterdir() if f.suffix.lower() in (".mp4", ".mkv")])
+    except OSError:
+        pass
+    _, jeu = lancer(["nexus-reprise", "--info"])
+    try:
+        jeu = json.loads(jeu.strip() or "{}")
+    except ValueError:
+        jeu = {}
+    _, virt = lancer(["systemd-detect-virt"])
+    sortir({"installe": existe("gpu-screen-recorder"), "actif": conf["ACTIF"] == "oui",
+            "enCours": etat.strip() == "actif", "duree": int(conf["DUREE"] or 60),
+            "qualite": conf["QUALITE"], "son": conf["SON"] == "oui", "ips": int(conf["IPS"] or 60),
+            "dossier": dossier, "clips": clips, "dernierJeu": jeu, "vm": virt.strip() == "oracle"})
+
+
+def ecrire_conf_replay(cle, valeur):
+    conf = lire_conf_replay()
+    conf[cle] = valeur
+    CONF_NEXUS.mkdir(parents=True, exist_ok=True)
+    FICHIER_REPLAY.write_text("# Réglages d'ActionReplay (Paramètres › Jeux)\n"
+                              + "".join(f"{k}={v}\n" for k, v in conf.items() if v != "" or k != "DOSSIER"))
+
+
+def act_replay_actif(etat):
+    code, s = lancer(["nexus-shadowrecord", "activer" if etat == "on" else "desactiver"], delai=20)
+    ok() if code == 0 else echec("ActionReplay n'a pas pu démarrer")
+
+
+def act_replay_reglage(cle, valeur):
+    if cle not in REGLAGES_REPLAY or valeur not in REGLAGES_REPLAY[cle]:
+        echec("Réglage invalide")
+        return
+    ecrire_conf_replay(cle, valeur)
+    lancer(["nexus-shadowrecord", "redemarrer"], delai=20)
+    ok("Réglage enregistré")
+
+
+def act_replay_sauver():
+    code, s = lancer(["nexus-shadowrecord", "sauver"])
+    ok("Clip en cours d'enregistrement…") if code == 0 else echec(s)
+
+
+def act_reprise():
+    subprocess.Popen(["nexus-reprise"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    ok()
+
+
+LECTURES["replay"] = lire_replay
+ACTIONS.update({"replay-actif": act_replay_actif, "replay-reglage": act_replay_reglage,
+                "replay-sauver": act_replay_sauver, "reprise": act_reprise})
 
 
 def main():

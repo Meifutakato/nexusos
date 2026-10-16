@@ -42,13 +42,13 @@ Singleton {
         "onlyoffice-desktopeditors",
         "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
         "kitty", "discord", "steam", "spotify",
-        "com.heroicgameslauncher.hgl", "org.pulseaudio.pavucontrol"
+        "heroic", "com.heroicgameslauncher.hgl", "org.pulseaudio.pavucontrol"
     ]
     readonly property var epinglesMenuDefaut: [
         "firefox", "microsoft-edge", "onlyoffice-desktopeditors",
         "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
         "thunar", "kitty", "org.gnome.Loupe", "ristretto", "steam", "discord",
-        "spotify", "com.heroicgameslauncher.hgl", "btop", "org.pulseaudio.pavucontrol"
+        "spotify", "heroic", "com.heroicgameslauncher.hgl", "btop", "org.pulseaudio.pavucontrol"
     ]
     property var epinglesFichier: ({})
     readonly property var listeBarre: Array.isArray(epinglesFichier.barre) ? epinglesFichier.barre : epinglesBarreDefaut
@@ -136,6 +136,13 @@ Singleton {
         if (h < 24) return "il y a " + h + " h";
         const j = Math.floor(h / 24);
         return j === 1 ? "hier" : "il y a " + j + " jours";
+    }
+
+    // Icône d'une application : nom du thème d'icônes, ou chemin complet (/usr/share/pixmaps/…)
+    function iconeAppli(icone) {
+        const i = String(icone || "");
+        if (i.indexOf("/") === 0) return "file://" + i;
+        return Quickshell.iconPath(i, "application-x-executable");
     }
 
     // Logo NexusOS

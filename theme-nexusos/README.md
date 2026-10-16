@@ -107,3 +107,12 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
 - Réglages gardés : `~/.config/nexusos/fond`, `~/.config/nexusos/epingles.json`, `~/.config/hypr/ecran.conf`.
 - Les réglages système (SSH, snapshot) demandent le mot de passe via hyprpolkitagent.
 - Ouvrir depuis un terminal : `quickshell ipc call parametres ouvrir` ou `quickshell ipc call parametres page son`.
+
+## Jeux : ActionReplay et reprise (phase D)
+
+- ActionReplay (`outils-jeux/nexus-shadowrecord`, remplace l'ancien ShadowRecord) : gpu-screen-recorder garde
+  les dernières secondes en mémoire ; Super+Maj+G enregistre le clip dans `/.gameclips/clips`.
+  À activer dans Paramètres › Jeux (durée 15 s à 5 min, qualité, images/s, son).
+  Dans VirtualBox : encodage par le processeur, 30 images/s maximum.
+- Reprise (`outils-jeux/nexus-reprise`, Super+G) : relance le dernier jeu Steam joué.
+- Les notes de session GameResume restent disponibles : Paramètres › Jeux › Notes de session.

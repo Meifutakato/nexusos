@@ -11,7 +11,7 @@ FloatingWindow {
     title: "Paramètres NexusOS"
     visible: Etat.parametresOuverts
     implicitWidth: 1180
-    implicitHeight: 760
+    implicitHeight: 860
     color: "#0a1230"
 
     property string page: "accueil"
@@ -163,7 +163,7 @@ FloatingWindow {
                     Column {
                         id: colonneGroupes
                         width: parent.width
-                        spacing: 10
+                        spacing: 8
 
                         Repeater {
                             model: fenetre.groupes
@@ -177,7 +177,7 @@ FloatingWindow {
                                 }
                                 visible: visibles > 0
                                 width: colonneGroupes.width
-                                height: colonneEntrees.implicitHeight + 8
+                                height: colonneEntrees.implicitHeight + 6
                                 radius: 16
                                 color: Qt.rgba(1, 1, 1, 0.045)
                                 border.width: 1
@@ -185,7 +185,7 @@ FloatingWindow {
 
                                 Column {
                                     id: colonneEntrees
-                                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 4 }
+                                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 3 }
                                     Repeater {
                                         model: groupe.modelData
                                         Rectangle {
@@ -194,7 +194,7 @@ FloatingWindow {
                                             property bool choisie: fenetre.page === modelData.id
                                             visible: fenetre.correspond(modelData)
                                             width: colonneEntrees.width
-                                            height: visible ? 50 : 0
+                                            height: visible ? 40 : 0
                                             radius: 12
                                             color: choisie ? Qt.rgba(47/255, 107/255, 1, 0.24)
                                                  : (zoneEntree.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
@@ -208,7 +208,7 @@ FloatingWindow {
                                             Row {
                                                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                                                 spacing: 14
-                                                PIcone { glyphe: entree.modelData.glyphe; teinte: entree.modelData.teinte; taille: 30 }
+                                                PIcone { glyphe: entree.modelData.glyphe; teinte: entree.modelData.teinte; taille: 26 }
                                                 Text {
                                                     anchors.verticalCenter: parent.verticalCenter
                                                     text: entree.modelData.titre

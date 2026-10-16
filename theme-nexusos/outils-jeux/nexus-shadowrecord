@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════
+#  NexusOS — ActionReplay : enregistre en continu les dernières minutes à l'écran
+#  (en mémoire, rien n'est écrit sur le disque tant qu'on ne le demande pas).
+#
+#  nexus-shadowrecord auto        démarre si ActionReplay est activé (lancé à la connexion)
+#  nexus-shadowrecord activer     active et démarre
+#  nexus-shadowrecord desactiver  arrête et désactive
+#  nexus-shadowrecord redemarrer  applique de nouveaux réglages
+#  nexus-shadowrecord sauver      enregistre le clip (Super+Maj+G)
+#  nexus-shadowrecord etat        affiche « actif » ou « arrete »
+#
+#  Réglages : ~/.config/nexusos/actionreplay.conf (modifiables dans Paramètres › Jeux)
+# ═══════════════════════════════════════════════════════════
+set -u
+CONF="$HOME/.config/nexusos/actionreplay.conf"
+JOURNAL="$HOME/.cache/nexusos/actionreplay.log"
+
+notifier() { command -v notify-send >/dev/null && notify-send -a "ActionReplay" -i media-record "$1" "${2:-}"; }
+en_cours() { pgrep -u "$USER" -f '^gpu-screen-recorder' >/dev/null; }
+
+lire_reglages() {
+    ACTIF=non; DUREE=60; QUALITE=very_high; SON=oui; IPS=60; DOSSIER=""
+    # shellcheck disable=SC1090
+    [[ -f "$CONF" ]] && source "$CONF"
+    if [[ -z "$DOSSIER" ]]; then
+        for d in /.gameclips/clips "$HOME/.gameclips/saved"; do   # sous-volume Btrfs @gameclips, sinon ancien dossier
+            if [[ -d "$d" && -w "$d" ]]; then DOSSIER="$d"; break; fi
+        done
+        [[ -z "$DOSSIER" ]] && DOSSIER="$(xdg-user-dir VIDEOS 2>/dev/null || echo "$HOME/Vidéos")/Clips"
+    fi
+    mkdir -p "$DOSSIER" "$(dirname "$JOURNAL")"
+}
+
+ecrire_reglage() {      # ecrire_reglage CLE valeur
+    mkdir -p "$(dirname "$CONF")"
+    touch "$CONF"
+    if grep -q "^$1=" "$CONF"; then sed -i "s|^$1=.*|$1=$2|" "$CONF"; else echo "$1=$2" >> "$CONF"; fi
+}
+
+demarrer() {
+    lire_reglages
+    if en_cours; then return 0; fi
+    if ! command -v gpu-screen-recorder >/dev/null; then
+        notifier "ActionReplay indisponible" "gpu-screen-recorder n'est pas installé."
+        return 1
+    fi
+    local encodeur=gpu ips="$IPS"
+    # Sans vraie carte graphique (VirtualBox), l'encodage passe par le processeur, à 30 images/s
+    if [[ "$(systemd-detect-virt 2>/dev/null)" == "oracle" ]]; then
+        encodeur=cpu
+        (( ips > 30 )) && ips=30
+    fi
+    local args=(-w screen -c mp4 -r "$DUREE" -o "$DOSSIER" -q "$QUALITE" -f "$ips"
+                -encoder "$encodeur" -sc /usr/local/bin/nexus-clip-sauve)
+    [[ "$SON" == oui ]] && args+=(-a default_output)
+    setsid gpu-screen-recorder "${args[@]}" >>"$JOURNAL" 2>&1 < /dev/null &
+    sleep 2
+    if en_cours; then return 0; fi
+    notifier "ActionReplay n'a pas pu démarrer" "Détails : $JOURNAL"
+    return 1
+}
+
+arreter() {             # en mode replay, rien n'est perdu : on arrête simplement l'enregistreur
+    pkill -TERM -u "$USER" -f '^gpu-screen-recorder' 2>/dev/null
+    for _ in 1 2 3 4 5 6; do en_cours || return 0; sleep 0.5; done
+    pkill -KILL -u "$USER" -f '^gpu-screen-recorder' 2>/dev/null
+}
+
+case "${1:-etat}" in
+    auto)        lire_reglages; [[ "$ACTIF" == oui ]] && demarrer ;;
+    activer)     ecrire_reglage ACTIF oui; demarrer && notifier "ActionReplay activé" "Super+Maj+G pour enregistrer les dernières secondes." ;;
+    desactiver)  ecrire_reglage ACTIF non; arreter; notifier "ActionReplay désactivé" ;;
+    redemarrer)  arreter; lire_reglages; [[ "$ACTIF" == oui ]] && demarrer ;;
+    sauver)
+        if en_cours; then
+            pkill -USR1 -u "$USER" -f '^gpu-screen-recorder'
+        else
+            notifier "ActionReplay n'est pas actif" "Active-le dans Paramètres › Jeux."
+        fi ;;
+    etat)        if en_cours; then echo actif; else echo arrete; fi ;;
+    *)           echo "usage : nexus-shadowrecord {auto|activer|desactiver|redemarrer|sauver|etat}" >&2; exit 2 ;;
+esac
