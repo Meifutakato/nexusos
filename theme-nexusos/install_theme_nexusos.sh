@@ -39,6 +39,14 @@ pacman -S --needed --noconfirm quickshell \
     || sudo -u "$USERNAME" paru -S --needed --noconfirm quickshell \
     || ECHECS+=("quickshell")
 
+# Lecteur NexusOS : moteur mpv + interface uosc (AUR). paru ne redemande pas le mot de passe :
+# autorisation temporaire de pacman pour l'utilisateur, retirée à la fin du script.
+pacman -S --needed --noconfirm mpv || ECHECS+=("mpv")
+echo "$USERNAME ALL=(ALL) NOPASSWD: /usr/bin/pacman" > /etc/sudoers.d/90-nexusos-installation
+chmod 440 /etc/sudoers.d/90-nexusos-installation
+trap 'rm -f /etc/sudoers.d/90-nexusos-installation' EXIT
+sudo -u "$USERNAME" paru -S --needed --noconfirm mpv-uosc || ECHECS+=("mpv-uosc")
+
 # Outils de jeu : ActionReplay (gpu-screen-recorder) et reprise du dernier jeu
 for p in gpu-screen-recorder wf-recorder ffmpeg; do      # wf-recorder : mode de secours sans vraie carte graphique
     pacman -S --needed --noconfirm "$p" || ECHECS+=("$p")
@@ -97,6 +105,25 @@ MACHINE="$CONF/hypr/machine.conf"
 
 # Réglage d'écran choisi dans Paramètres (créé vide la première fois, jamais écrasé)
 [[ -f "$CONF/hypr/ecran.conf" ]] || echo "# Réglé par Paramètres › Écran" > "$CONF/hypr/ecran.conf"
+
+# Lecteur NexusOS : entrée de menu et lecteur par défaut des vidéos et de la musique
+install -Dm644 "$ICI/config/quickshell/icones/lecteur.svg" /usr/share/pixmaps/nexusos-lecteur.svg
+install -d "$MAISON/.local/share/applications"
+cat > "$MAISON/.local/share/applications/nexusos-lecteur.desktop" << 'EOF_LECTEUR'
+[Desktop Entry]
+Type=Application
+Name=Lecteur NexusOS
+GenericName=Lecteur vidéo et musique
+Comment=Lire les vidéos, les clips de jeu et la musique
+Exec=mpv --player-operation-mode=pseudo-gui -- %U
+Icon=/usr/share/pixmaps/nexusos-lecteur.svg
+Categories=AudioVideo;Video;Audio;Player;
+MimeType=video/mp4;video/x-matroska;video/webm;video/quicktime;video/x-msvideo;video/mpeg;video/ogg;audio/mpeg;audio/flac;audio/ogg;audio/x-wav;audio/mp4;
+Keywords=vidéo;film;musique;clip;lecteur;
+EOF_LECTEUR
+sudo -u "$USERNAME" xdg-mime default nexusos-lecteur.desktop \
+    video/mp4 video/x-matroska video/webm video/quicktime video/x-msvideo video/mpeg \
+    audio/mpeg audio/flac audio/ogg audio/x-wav audio/mp4 2>/dev/null || true
 
 # Paramètres NexusOS visibles dans le menu et la recherche
 install -Dm644 "$ICI/config/quickshell/icones/parametres.svg" /usr/share/pixmaps/nexusos-parametres.svg

@@ -41,7 +41,7 @@ installer libreoffice-fresh libreoffice-fresh-fr \
           mousepad gnome-calculator file-roller thunar-archive-plugin
 
 etape "[5/7] Photos, vidéos, musique"
-installer loupe vlc
+installer loupe vlc vlc-plugins-all     # depuis le découpage du paquet, VLC a besoin de ses greffons
 installer_aur spotify
 
 etape "[6/7] Jeux et discussion"

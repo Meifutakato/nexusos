@@ -6,9 +6,13 @@ dossier=$(dirname "$1")
 # En arrière-plan : l'enregistreur n'attend pas qu'on clique sur la notification
 if command -v notify-send >/dev/null; then
     (
-        reponse=$(notify-send -a "ActionReplay" -i media-record -A ouvrir="Ouvrir le dossier" \
+        reponse=$(notify-send -a "ActionReplay" -i media-record \
+            -A lire="Regarder" -A ouvrir="Ouvrir le dossier" \
             "Clip enregistré" "$nom" 2>/dev/null)
-        [ "$reponse" = "ouvrir" ] && thunar "$dossier" >/dev/null 2>&1
+        case "$reponse" in
+            lire)   mpv --player-operation-mode=pseudo-gui -- "$1" >/dev/null 2>&1 ;;
+            ouvrir) thunar "$dossier" >/dev/null 2>&1 ;;
+        esac
     ) &
 fi
 exit 0

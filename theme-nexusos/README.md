@@ -116,3 +116,9 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
   Dans VirtualBox : encodage par le processeur, 30 images/s maximum.
 - Reprise (`outils-jeux/nexus-reprise`, Super+G) : relance le dernier jeu Steam joué.
 - Les notes de session GameResume restent disponibles : Paramètres › Jeux › Notes de session.
+
+## Lecteur NexusOS
+
+- Moteur mpv + interface uosc aux couleurs du thème : `config/mpv/mpv.conf`, `config/mpv/script-opts/uosc.conf`.
+- Affichage automatique : carte graphique si elle existe, sinon dessin par le processeur (VirtualBox).
+- Lecteur par défaut des vidéos et de la musique ; bouton « Regarder » dans la notification d'un clip.

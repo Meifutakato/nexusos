@@ -48,7 +48,7 @@ Singleton {
         "firefox", "microsoft-edge", "onlyoffice-desktopeditors",
         "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
         "thunar", "kitty", "org.gnome.Loupe", "ristretto", "steam", "discord",
-        "spotify", "heroic", "com.heroicgameslauncher.hgl", "btop", "org.pulseaudio.pavucontrol"
+        "spotify", "heroic", "com.heroicgameslauncher.hgl", "nexusos-lecteur", "btop", "org.pulseaudio.pavucontrol"
     ]
     property var epinglesFichier: ({})
     readonly property var listeBarre: Array.isArray(epinglesFichier.barre) ? epinglesFichier.barre : epinglesBarreDefaut
@@ -158,7 +158,8 @@ Singleton {
         "avahi-discover", "bssh", "bvnc", "qv4l2", "qvidcap", "xgps", "xgpsspeed",
         "rofi", "rofi-theme-selector", "thunar-bulk-rename", "thunar-settings",
         "thunar-volman-settings", "vim", "nvim", "lstopo", "cmake-gui",
-        "org.freedesktop.IBus.Setup", "electron", "jconsole", "jshell", "uxterm", "xterm"
+        "org.freedesktop.IBus.Setup", "electron", "jconsole", "jshell", "uxterm", "xterm",
+        "mpv"   // remplacé par « Lecteur NexusOS »
     ]
 
     function visible(appli) {
