@@ -40,7 +40,9 @@ pacman -S --needed --noconfirm quickshell \
     || ECHECS+=("quickshell")
 
 # Outils de jeu : ActionReplay (gpu-screen-recorder) et reprise du dernier jeu
-pacman -S --needed --noconfirm gpu-screen-recorder || ECHECS+=("gpu-screen-recorder")
+for p in gpu-screen-recorder wf-recorder ffmpeg; do      # wf-recorder : mode de secours sans vraie carte graphique
+    pacman -S --needed --noconfirm "$p" || ECHECS+=("$p")
+done
 # L'ancien ShadowRecord (ffmpeg/X11, ne marchait pas sous Wayland) est remplacé
 pkill -f "python3 /usr/local/bin/nexus-shadowrecord" 2>/dev/null || true
 rm -f /etc/systemd/user/nexus-shadowrecord.service /etc/systemd/user/default.target.wants/nexus-shadowrecord.service \

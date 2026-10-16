@@ -95,7 +95,7 @@ ColumnLayout {
         PLigne {
             glyphe: ""; teinte: "#8b5cf6"
             titre: "Qualité"
-            detail: page.r.vm ? "Dans VirtualBox : encodage par le processeur, 30 images/s maximum" : ""
+            detail: page.r.vm ? "Dans VirtualBox : mode de secours (processeur, 30 images/s maximum)" : "Encodage par la carte graphique"
             separateur: false
         }
         Flow {

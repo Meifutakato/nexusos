@@ -10,14 +10,25 @@
 #  nexus-shadowrecord sauver      enregistre le clip (Super+Maj+G)
 #  nexus-shadowrecord etat        affiche « actif » ou « arrete »
 #
+#  Deux moteurs :
+#   - vraie carte graphique (AMD, Intel, NVIDIA) : gpu-screen-recorder, encodage par la carte ;
+#   - machine virtuelle ou carte non prise en charge : mode de secours wf-recorder + ffmpeg,
+#     qui garde les dernières secondes en morceaux de 5 s dans la RAM ($XDG_RUNTIME_DIR).
+#
 #  Réglages : ~/.config/nexusos/actionreplay.conf (modifiables dans Paramètres › Jeux)
 # ═══════════════════════════════════════════════════════════
 set -u
 CONF="$HOME/.config/nexusos/actionreplay.conf"
 JOURNAL="$HOME/.cache/nexusos/actionreplay.log"
+REPLI="${XDG_RUNTIME_DIR:-/tmp/nexus-$USER}/nexus-replay"     # en RAM (tmpfs)
+PIDFILE="$REPLI/pid"
+MORCEAU=5                                                       # secondes par morceau
 
 notifier() { command -v notify-send >/dev/null && notify-send -a "ActionReplay" -i media-record "$1" "${2:-}"; }
-en_cours() { pgrep -u "$USER" -f '^gpu-screen-recorder' >/dev/null; }
+
+gsr_en_cours()   { pgrep -u "$USER" -f '^gpu-screen-recorder' >/dev/null; }
+repli_en_cours() { [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; }
+en_cours()       { gsr_en_cours || repli_en_cours; }
 
 lire_reglages() {
     ACTIF=non; DUREE=60; QUALITE=very_high; SON=oui; IPS=60; DOSSIER=""
@@ -38,31 +49,107 @@ ecrire_reglage() {      # ecrire_reglage CLE valeur
     if grep -q "^$1=" "$CONF"; then sed -i "s|^$1=.*|$1=$2|" "$CONF"; else echo "$1=$2" >> "$CONF"; fi
 }
 
-demarrer() {
-    lire_reglages
-    if en_cours; then return 0; fi
-    if ! command -v gpu-screen-recorder >/dev/null; then
-        notifier "ActionReplay indisponible" "gpu-screen-recorder n'est pas installé."
-        return 1
-    fi
-    local encodeur=gpu ips="$IPS"
-    # Sans vraie carte graphique (VirtualBox), l'encodage passe par le processeur, à 30 images/s
-    if [[ "$(systemd-detect-virt 2>/dev/null)" == "oracle" ]]; then
-        encodeur=cpu
-        (( ips > 30 )) && ips=30
-    fi
-    local args=(-w screen -c mp4 -r "$DUREE" -o "$DOSSIER" -q "$QUALITE" -f "$ips"
-                -encoder "$encodeur" -sc /usr/local/bin/nexus-clip-sauve)
+machine_virtuelle() {
+    case "$(systemd-detect-virt 2>/dev/null)" in
+        oracle|vmware|qemu|kvm|microsoft|parallels|xen|bochs) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# ── Moteur 1 : gpu-screen-recorder (vraie carte graphique) ──
+demarrer_gsr() {
+    command -v gpu-screen-recorder >/dev/null || return 1
+    local args=(-w screen -c mp4 -r "$DUREE" -o "$DOSSIER" -q "$QUALITE" -f "$IPS"
+                -sc /usr/local/bin/nexus-clip-sauve)
     [[ "$SON" == oui ]] && args+=(-a default_output)
     setsid gpu-screen-recorder "${args[@]}" >>"$JOURNAL" 2>&1 < /dev/null &
     sleep 2
+    gsr_en_cours
+}
+
+# ── Moteur 2 : secours (machine virtuelle) ──
+# Boucle d'enregistrement : wf-recorder → ffmpeg qui découpe en morceaux et réécrit les plus anciens
+boucle_repli() {
+    lire_reglages
+    local ips="$IPS"; (( ips > 30 )) && ips=30
+    local nb=$(( (DUREE + MORCEAU - 1) / MORCEAU + 1 ))
+    local crf=30
+    case "$QUALITE" in high) crf=26 ;; very_high) crf=23 ;; ultra) crf=20 ;; esac
+    local audio=()
+    if [[ "$SON" == oui ]] && command -v pactl >/dev/null; then
+        local sortie; sortie="$(pactl get-default-sink 2>/dev/null)"
+        [[ -n "$sortie" ]] && audio=(--audio="$sortie.monitor")
+    fi
+    # image clé toutes les 2 s : sinon les morceaux ne peuvent pas être coupés toutes les 5 s
+    wf-recorder -c libx264 -p preset=ultrafast -p crf="$crf" -p g=$(( ips * 2 )) -r "$ips" "${audio[@]}" \
+                -m mpegts -f /dev/stdout 2>>"$JOURNAL" \
+      | ffmpeg -loglevel error -f mpegts -i - -c copy -map 0 \
+               -f segment -segment_time "$MORCEAU" -segment_wrap "$nb" -reset_timestamps 1 \
+               "$REPLI/morceau%03d.ts" 2>>"$JOURNAL"
+}
+
+demarrer_repli() {
+    if ! command -v wf-recorder >/dev/null || ! command -v ffmpeg >/dev/null; then
+        notifier "ActionReplay indisponible" "wf-recorder ou ffmpeg manquant (relance l'installeur du thème)."
+        return 1
+    fi
+    rm -rf "$REPLI"; mkdir -p "$REPLI"
+    setsid "$0" _boucle >>"$JOURNAL" 2>&1 < /dev/null &
+    echo $! > "$PIDFILE"
+    sleep 3
+    repli_en_cours
+}
+
+sauver_repli() {
+    # Ordre : les morceaux tournent (000, 001… puis on réécrit 000) ; le plus récent est
+    # celui qu'on écrit en ce moment, on part du suivant pour avoir l'ordre chronologique.
+    lire_reglages
+    local nb=$(( (DUREE + MORCEAU - 1) / MORCEAU + 1 ))     # même calcul que boucle_repli
+    local morceaux=() recent i f
+    recent="$(ls -t "$REPLI"/morceau*.ts 2>/dev/null | head -n1)"
+    if [[ -n "$recent" ]]; then
+        local num; num="$(basename "$recent" .ts)"; num=$((10#${num#morceau}))
+        for (( i = 1; i <= nb; i++ )); do
+            f="$(printf '%s/morceau%03d.ts' "$REPLI" $(( (num + i) % nb )))"
+            # on saute les morceaux absents ou trop petits (tout juste commencés)
+            [[ -f "$f" && $(stat -c %s "$f") -gt 4096 ]] && morceaux+=("$f")
+        done
+    fi
+    if (( ${#morceaux[@]} == 0 )); then
+        notifier "Rien à enregistrer pour l'instant" "Attends quelques secondes après l'activation."
+        return 1
+    fi
+    local liste="$REPLI/liste.txt" fichier
+    fichier="$DOSSIER/Replay_$(date +%Y-%m-%d_%H-%M-%S).mp4"
+    : > "$liste"
+    for m in "${morceaux[@]}"; do printf "file '%s'\n" "$m" >> "$liste"; done
+    (
+        if ffmpeg -loglevel error -f concat -safe 0 -i "$liste" -c copy -bsf:a aac_adtstoasc \
+                  -movflags +faststart "$fichier" -y 2>>"$JOURNAL"; then
+            /usr/local/bin/nexus-clip-sauve "$fichier" replay
+        else
+            notifier "Le clip n'a pas pu être enregistré" "Détails : $JOURNAL"
+        fi
+    ) &
+}
+
+# ── Commun ──
+demarrer() {
+    lire_reglages
     if en_cours; then return 0; fi
+    if ! machine_virtuelle && demarrer_gsr; then return 0; fi
+    # Pas de vraie carte graphique (ou carte non prise en charge) : mode de secours
+    if demarrer_repli; then return 0; fi
     notifier "ActionReplay n'a pas pu démarrer" "Détails : $JOURNAL"
     return 1
 }
 
 arreter() {             # en mode replay, rien n'est perdu : on arrête simplement l'enregistreur
     pkill -TERM -u "$USER" -f '^gpu-screen-recorder' 2>/dev/null
+    if [[ -f "$PIDFILE" ]]; then
+        kill -TERM -- -"$(cat "$PIDFILE")" 2>/dev/null     # tout le groupe : wf-recorder et ffmpeg
+        rm -f "$PIDFILE"
+    fi
     for _ in 1 2 3 4 5 6; do en_cours || return 0; sleep 0.5; done
     pkill -KILL -u "$USER" -f '^gpu-screen-recorder' 2>/dev/null
 }
@@ -73,11 +160,15 @@ case "${1:-etat}" in
     desactiver)  ecrire_reglage ACTIF non; arreter; notifier "ActionReplay désactivé" ;;
     redemarrer)  arreter; lire_reglages; [[ "$ACTIF" == oui ]] && demarrer ;;
     sauver)
-        if en_cours; then
+        if gsr_en_cours; then
             pkill -USR1 -u "$USER" -f '^gpu-screen-recorder'
+        elif repli_en_cours; then
+            sauver_repli
         else
             notifier "ActionReplay n'est pas actif" "Active-le dans Paramètres › Jeux."
         fi ;;
     etat)        if en_cours; then echo actif; else echo arrete; fi ;;
-    *)           echo "usage : nexus-shadowrecord {auto|activer|desactiver|redemarrer|sauver|etat}" >&2; exit 2 ;;
+    moteur)      if gsr_en_cours; then echo carte; elif repli_en_cours; then echo secours; else echo aucun; fi ;;
+    _boucle)     boucle_repli ;;
+    *)           echo "usage : nexus-shadowrecord {auto|activer|desactiver|redemarrer|sauver|etat|moteur}" >&2; exit 2 ;;
 esac
