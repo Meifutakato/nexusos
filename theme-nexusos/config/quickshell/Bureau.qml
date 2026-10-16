@@ -40,7 +40,7 @@ PanelWindow {
         else if (action === "corbeille") ouvrirDossier("trash:///");
         else if (action === "perso") ouvrirDossier(Quickshell.env("HOME"));
         else if (action === "cloud") Etat.bientot("Le Cloud NexusOS");
-        else if (action === "parametres") Etat.bientot("Les Paramètres NexusOS");
+        else if (action === "parametres") Etat.ouvrirParametres("accueil");
         else if (action === "nexusos") Etat.lancer(["kitty", "--hold", "fastfetch"]);
         else if (action === "jeux") Etat.ouvrirMenuSur("categorie", "Game", "Jeux");
         else if (action === "applications") Etat.ouvrirMenuSur("applications");

@@ -14,13 +14,8 @@ PanelWindow {
     // ── Réglages faciles à modifier ─────────────────────────────
     // Applications épinglées : nom du fichier .desktop, sans « .desktop ».
     // Celles qui ne sont pas installées sont simplement ignorées.
-    property var epingles: [
-        "thunar", "firefox", "microsoft-edge",
-        "onlyoffice-desktopeditors",
-        "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
-        "kitty", "discord", "steam", "spotify",
-        "com.heroicgameslauncher.hgl", "org.pulseaudio.pavucontrol"
-    ]
+    // Applications épinglées : réglables dans Paramètres › Applications (voir Etat.qml)
+    property var epingles: Etat.listeBarre
 
     // Palette NexusOS
     readonly property color cFond:    Qt.rgba(6/255, 12/255, 34/255, 0.78)

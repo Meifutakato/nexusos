@@ -22,6 +22,9 @@ ShellRoot {
 
     Menu {}
 
+    // Paramètres NexusOS (fenêtre)
+    Parametres {}
+
     // Trois points sur la fenêtre active (façon HyperOS)
     Poignee {}
 
@@ -32,5 +35,14 @@ ShellRoot {
         function basculer(): void { Etat.basculerMenu(); }
         function ouvrir(): void { Etat.menuOuvert = true; }
         function fermer(): void { Etat.menuOuvert = false; }
+    }
+
+    //   quickshell ipc call parametres ouvrir
+    //   quickshell ipc call parametres page son
+    IpcHandler {
+        target: "parametres"
+        function ouvrir(): void { Etat.ouvrirParametres("accueil"); }
+        function page(nom: string): void { Etat.ouvrirParametres(nom); }
+        function fermer(): void { Etat.parametresOuverts = false; }
     }
 }

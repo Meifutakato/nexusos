@@ -1,6 +1,7 @@
 pragma Singleton
-// NexusOS — état partagé entre la barre et le menu Démarrer
+// NexusOS — état partagé entre la barre, le menu Démarrer et les Paramètres
 import Quickshell
+import Quickshell.Io
 import QtQuick
 
 Singleton {
@@ -18,6 +19,123 @@ Singleton {
         categorieDemandee = categorie || "";
         titreDemande = titre || "";
         menuOuvert = true;
+    }
+
+
+    // ── Fenêtre Paramètres ──────────────────────────────────────
+    property bool parametresOuverts: false
+    property string pageParametres: "accueil"
+    function ouvrirParametres(page) {
+        pageParametres = page || "accueil";
+        parametresOuverts = false;     // si la fenêtre a été fermée par le bureau, on la recrée
+        parametresOuverts = true;
+        menuOuvert = false;
+    }
+
+    // Programme qui lit et règle le système pour les Paramètres
+    readonly property string programmeParam: Quickshell.env("HOME") + "/.config/quickshell/nexus-param.py"
+
+    // ── Applications épinglées (barre du bas et menu) ───────────
+    // Réglables dans Paramètres › Applications ; enregistrées dans ~/.config/nexusos/epingles.json
+    readonly property var epinglesBarreDefaut: [
+        "thunar", "firefox", "microsoft-edge",
+        "onlyoffice-desktopeditors",
+        "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
+        "kitty", "discord", "steam", "spotify",
+        "com.heroicgameslauncher.hgl", "org.pulseaudio.pavucontrol"
+    ]
+    readonly property var epinglesMenuDefaut: [
+        "firefox", "microsoft-edge", "onlyoffice-desktopeditors",
+        "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
+        "thunar", "kitty", "org.gnome.Loupe", "ristretto", "steam", "discord",
+        "spotify", "com.heroicgameslauncher.hgl", "btop", "org.pulseaudio.pavucontrol"
+    ]
+    property var epinglesFichier: ({})
+    readonly property var listeBarre: Array.isArray(epinglesFichier.barre) ? epinglesFichier.barre : epinglesBarreDefaut
+    readonly property var listeMenu: Array.isArray(epinglesFichier.menu) ? epinglesFichier.menu : epinglesMenuDefaut
+
+    function enregistrerEpingles(cible, liste) {
+        lancer(["python3", programmeParam, "epingles", cible, JSON.stringify(liste)]);
+        const copie = Object.assign({}, epinglesFichier);
+        copie[cible] = liste;
+        epinglesFichier = copie;      // mise à jour immédiate, sans attendre le fichier
+    }
+
+    FileView {
+        id: fichierEpingles
+        path: Quickshell.env("HOME") + "/.config/nexusos/epingles.json"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try { etat.epinglesFichier = JSON.parse(text()) || {}; }
+            catch (e) { etat.epinglesFichier = {}; }
+        }
+        onLoadFailed: etat.epinglesFichier = {}
+    }
+
+
+    // ── Actions des Paramètres (une à la fois, dans l'ordre) ────
+    // Etat.agirParam(["volume", "40"]) → lance nexus-param.py, affiche son message,
+    // puis émet actionParamTerminee() pour que la page se mette à jour.
+    signal actionParamTerminee()
+    property var fileParam: []
+    property string messageParam: ""
+    property bool messageOk: true
+    property int numeroMessage: 0
+
+    function agirParam(args) {
+        const f = fileParam.slice();
+        f.push(args);
+        fileParam = f;
+        actionSuivante();
+    }
+    function actionSuivante() {
+        if (executeurParam.running || fileParam.length === 0) return;
+        const f = fileParam.slice();
+        const a = f.shift();
+        fileParam = f;
+        executeurParam.command = ["python3", programmeParam].concat(a);
+        executeurParam.running = true;
+    }
+    function notifier(texte, reussi) {
+        messageParam = texte;
+        messageOk = reussi;
+        numeroMessage++;
+    }
+
+    Process {
+        id: executeurParam
+        stdout: SplitParser {
+            onRead: ligne => {
+                try {
+                    const r = JSON.parse(ligne);
+                    if (r.message) etat.notifier(r.message, r.ok);
+                } catch (e) {}
+            }
+        }
+        onExited: (code, statut) => {
+            etat.actionParamTerminee();
+            etat.actionSuivante();
+        }
+    }
+
+
+    // ── Petits outils d'affichage ───────────────────────────────
+    function taille(octets) {
+        if (!octets) return "0 Go";
+        const go = octets / 1073741824;
+        return (go >= 10 ? Math.round(go) : go.toFixed(1)).toString().replace(".", ",") + " Go";
+    }
+    function depuis(dateIso) {
+        if (!dateIso) return "jamais";
+        const ms = Date.now() - Date.parse(dateIso);
+        if (isNaN(ms)) return "inconnu";
+        const h = Math.floor(ms / 3600000);
+        if (h < 1) return "il y a moins d'une heure";
+        if (h < 24) return "il y a " + h + " h";
+        const j = Math.floor(h / 24);
+        return j === 1 ? "hier" : "il y a " + j + " jours";
     }
 
     // Logo NexusOS

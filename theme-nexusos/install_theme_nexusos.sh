@@ -30,7 +30,8 @@ pacman -S --needed --noconfirm waybar rofi kitty dunst hyprlock swaybg \
     grim slurp wl-clipboard ttf-jetbrains-mono-nerd noto-fonts papirus-icon-theme
 # Optionnels : un échec ne bloque pas
 ECHECS=()
-for p in pavucontrol thunar xdg-user-dirs xdg-utils libnotify gvfs qt6-svg fastfetch; do
+for p in pavucontrol thunar xdg-user-dirs xdg-utils libnotify gvfs qt6-svg fastfetch \
+         python hyprpolkitagent libpulse bluez-utils network-manager-applet; do
     pacman -S --needed --noconfirm "$p" || ECHECS+=("$p")
 done
 # Quickshell : dessine la barre du bas (dépôts officiels, sinon AUR via paru)
@@ -81,6 +82,24 @@ MACHINE="$CONF/hypr/machine.conf"
     fi
 } > "$MACHINE"
 
+# Réglage d'écran choisi dans Paramètres (créé vide la première fois, jamais écrasé)
+[[ -f "$CONF/hypr/ecran.conf" ]] || echo "# Réglé par Paramètres › Écran" > "$CONF/hypr/ecran.conf"
+
+# Paramètres NexusOS visibles dans le menu et la recherche
+install -Dm644 "$ICI/config/quickshell/icones/parametres.svg" /usr/share/pixmaps/nexusos-parametres.svg
+install -d "$MAISON/.local/share/applications"
+cat > "$MAISON/.local/share/applications/nexusos-parametres.desktop" << 'EOF_DESK'
+[Desktop Entry]
+Type=Application
+Name=Paramètres
+GenericName=Paramètres NexusOS
+Comment=Réseau, Bluetooth, son, écran, applications, mises à jour
+Exec=quickshell ipc call parametres ouvrir
+Icon=/usr/share/pixmaps/nexusos-parametres.svg
+Categories=Settings;System;
+Keywords=réglages;configuration;wifi;bluetooth;son;écran;
+EOF_DESK
+
 # Effets allégés (en option) : dans VirtualBox, tout le dessin passe par le processeur.
 # Pour les activer :  NEXUS_ALLEGER=1 bash install_theme_nexusos.sh
 ALLEGEMENT="$CONF/hypr/allegement.conf"
@@ -120,7 +139,7 @@ mkdir -p "$MAISON/.cache"
 sudo -u "$USERNAME" env LANG=fr_FR.UTF-8 xdg-user-dirs-update --force 2>/dev/null || true
 
 etape "[6/7] Droits des fichiers"
-chown -R "$USERNAME:$USERNAME" "$CONF" "$MAISON/.cache"
+chown -R "$USERNAME:$USERNAME" "$CONF" "$MAISON/.cache" "$MAISON/.local"
 
 etape "[7/7] Écran de connexion NexusOS"
 rm -rf /usr/share/sddm/themes/nexusos
@@ -149,4 +168,5 @@ echo
 echo "  Super+Entrée : terminal    Super+Espace : menu"
 echo "  Super+E : fichiers         Super+Q : fermer"
 echo "  Super+Maj+L : verrouiller  Super+Maj+M : quitter"
+echo "  Super+I : Paramètres"
 echo "╚══════════════════════════════════════════════════════╝"

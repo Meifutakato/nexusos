@@ -95,3 +95,15 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
 ## Icônes du bureau
 
 - Dessinées pour NexusOS (dégradés bleu/violet) : `config/quickshell/icones/*.svg`.
+
+## Paramètres NexusOS (Super+I)
+
+- Fenêtre Quickshell organisée par groupes (façon HyperOS) :
+  Accueil · Bluetooth et appareils, Réseau et Internet, Plus d'options de connexion · Applications, Jeux ·
+  Écran, Son, Notifications, Fond d'écran et thème · Comptes, Heure et langue, Sécurité, Batterie ·
+  Mise à jour et sauvegarde, À propos.
+- Fichiers : `config/quickshell/Parametres.qml` (fenêtre et organisation), `Page*.qml` (une page par catégorie),
+  `P*.qml` (cartes, lignes, interrupteurs, curseurs), `nexus-param.py` (lit et règle le système).
+- Réglages gardés : `~/.config/nexusos/fond`, `~/.config/nexusos/epingles.json`, `~/.config/hypr/ecran.conf`.
+- Les réglages système (SSH, snapshot) demandent le mot de passe via hyprpolkitagent.
+- Ouvrir depuis un terminal : `quickshell ipc call parametres ouvrir` ou `quickshell ipc call parametres page son`.

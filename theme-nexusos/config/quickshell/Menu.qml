@@ -13,12 +13,8 @@ PanelWindow {
 
     // ── Réglages faciles à modifier ─────────────────────────────
     // Applications de la section « Épinglé » (12 maximum, celles non installées sont ignorées)
-    property var epingles: [
-        "firefox", "microsoft-edge", "onlyoffice-desktopeditors",
-        "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
-        "thunar", "kitty", "org.gnome.Loupe", "ristretto", "steam", "discord",
-        "spotify", "com.heroicgameslauncher.hgl", "btop", "org.pulseaudio.pavucontrol"
-    ]
+    // Applications épinglées : réglables dans Paramètres › Applications (voir Etat.qml)
+    property var epingles: Etat.listeMenu
     // Cartes « Recommandé » : catégorie freedesktop des applications à montrer
     property var recommandes: [
         { titre: "Jeux", detail: "Lanceurs et bibliothèque", categorie: "Game", glyphe: "", couleur: "#8b5cf6" },
@@ -415,8 +411,7 @@ PanelWindow {
                     EntreeGauche {
                         glyphe: ""; libelle: "Paramètres"
                         onClique: {
-                            Etat.bientot("Les Paramètres NexusOS");
-                            Etat.menuOuvert = false;
+                            Etat.ouvrirParametres("accueil");
                         }
                     }
                     EntreeGauche {
