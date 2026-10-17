@@ -34,7 +34,22 @@ FloatingWindow {
     })
     function infoMode(id) { return modes.find(m => m.id === id) || modes[0]; }
 
-    SourceIa { id: ia }
+    // Lecture de l'état de l'espace IA (nexus-ia etat)
+    Item {
+        id: ia
+        visible: false
+        property var donnees: null
+        function recharger() { if (!lecteurIa.running) lecteurIa.running = true; }
+        Process {
+            id: lecteurIa
+            command: ["nexus-ia", "etat"]
+            stdout: SplitParser {
+                onRead: ligne => {
+                    try { ia.donnees = JSON.parse(ligne); } catch (e) {}
+                }
+            }
+        }
+    }
     property var d: ia.donnees || ({})
     property var toutes: (d.locales || []).map(x => ({ genre: "locale", nom: x.nom }))
                           .concat((d.enLigne || []).map(x => ({ genre: "en-ligne", nom: x.nom })))

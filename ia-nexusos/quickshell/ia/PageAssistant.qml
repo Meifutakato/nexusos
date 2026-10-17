@@ -1,5 +1,6 @@
 // Paramètres › Assistant IA : l'assistant de NexusOS, l'IA qu'il utilise, ce qu'il peut faire
 import Quickshell
+import Quickshell.Io
 import QtQuick
 import ".."
 import QtQuick.Layouts
@@ -8,7 +9,23 @@ ColumnLayout {
     id: page
     spacing: 14
 
-    SourceIa { id: ia; Component.onCompleted: recharger() }
+    // Lecture de l'état de l'espace IA (nexus-ia etat)
+    Item {
+        id: ia
+        visible: false
+        property var donnees: null
+        function recharger() { if (!lecteurIa.running) lecteurIa.running = true; }
+        Process {
+            id: lecteurIa
+            command: ["nexus-ia", "etat"]
+            stdout: SplitParser {
+                onRead: ligne => {
+                    try { ia.donnees = JSON.parse(ligne); } catch (e) {}
+                }
+            }
+        }
+        Component.onCompleted: recharger()
+    }
     Connections {
         target: Etat
         function onIaTerminee() { ia.recharger(); }
