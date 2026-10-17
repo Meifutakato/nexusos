@@ -105,6 +105,8 @@ MACHINE="$CONF/hypr/machine.conf"
 
 # Réglage d'écran choisi dans Paramètres (créé vide la première fois, jamais écrasé)
 [[ -f "$CONF/hypr/ecran.conf" ]] || echo "# Réglé par Paramètres › Écran" > "$CONF/hypr/ecran.conf"
+# Emplacement du module IA (rempli par ia-nexusos/install_ia_nexusos.sh, jamais écrasé ici)
+[[ -f "$CONF/hypr/ia.conf" ]] || echo "# Module IA non installé (voir ia-nexusos)" > "$CONF/hypr/ia.conf"
 
 # Lecteur NexusOS : entrée de menu et lecteur par défaut des vidéos et de la musique
 install -Dm644 "$ICI/config/quickshell/icones/lecteur.svg" /usr/share/pixmaps/nexusos-lecteur.svg

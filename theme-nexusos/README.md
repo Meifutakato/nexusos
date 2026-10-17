@@ -122,3 +122,9 @@ Icônes du bureau, logos NexusOS, couleurs automatiques depuis le fond d'écran 
 - Moteur mpv + interface uosc aux couleurs du thème : `config/mpv/mpv.conf`, `config/mpv/script-opts/uosc.conf`.
 - Affichage automatique : carte graphique si elle existe, sinon dessin par le processeur (VirtualBox).
 - Lecteur par défaut des vidéos et de la musique ; bouton « Regarder » dans la notification d'un clip.
+
+
+## Module IA (à part)
+Le thème ne contient aucune IA. L'espace IA (assistant Super+A, IA locales, IA en ligne, agents)
+est un module séparé : dossier `ia-nexusos/` à côté de ce dossier, avec son propre installeur.
+Sans lui, le thème fonctionne normalement et le groupe IA n'apparaît pas dans les Paramètres.

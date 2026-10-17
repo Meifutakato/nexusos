@@ -25,6 +25,12 @@ ShellRoot {
     // Paramètres NexusOS (fenêtre)
     Parametres {}
 
+    // Assistant IA : seulement si le module IA (ia-nexusos) est installé
+    LazyLoader {
+        active: Etat.iaInstalle
+        source: Qt.resolvedUrl("ia/Assistant.qml")
+    }
+
     // Trois points sur la fenêtre active (façon HyperOS)
     Poignee {}
 
@@ -44,5 +50,17 @@ ShellRoot {
         function ouvrir(): void { Etat.ouvrirParametres("accueil"); }
         function page(nom: string): void { Etat.ouvrirParametres(nom); }
         function fermer(): void { Etat.parametresOuverts = false; }
+    }
+
+    //   quickshell ipc call assistant basculer
+    //   quickshell ipc call assistant mode cv
+    IpcHandler {
+        target: "assistant"
+        function basculer(): void {
+            if (Etat.assistantOuvert) Etat.assistantOuvert = false; else Etat.ouvrirAssistant("");
+        }
+        function ouvrir(): void { Etat.ouvrirAssistant(""); }
+        function mode(nom: string): void { Etat.ouvrirAssistant(nom); }
+        function fermer(): void { Etat.assistantOuvert = false; }
     }
 }

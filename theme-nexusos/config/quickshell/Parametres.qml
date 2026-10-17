@@ -27,7 +27,7 @@ FloatingWindow {
     }
 
     // ── Organisation : un tableau par groupe (cartes séparées dans la colonne) ──
-    readonly property var groupes: [
+    readonly property var groupesTheme: [
         [ { id: "accueil",      titre: "Accueil",                       glyphe: "", teinte: "#2f6bff" } ],
         [ { id: "bluetooth",    titre: "Bluetooth et appareils",        glyphe: "", teinte: "#2f6bff" },
           { id: "reseau",       titre: "Réseau et Internet",            glyphe: "", teinte: "#0ea5e9" },
@@ -45,6 +45,26 @@ FloatingWindow {
         [ { id: "maj",          titre: "Mise à jour et sauvegarde",     glyphe: "", teinte: "#3b82f6" },
           { id: "apropos",      titre: "À propos de NexusOS",           glyphe: "", teinte: "#64748b" } ]
     ]
+    // Groupe du module IA (ia-nexusos), seulement s'il est installé ; ses pages sont dans ~/.config/quickshell/ia/
+    readonly property var groupeIa: [
+        { id: "assistant",    titre: "Assistant IA",  glyphe: "\udb81\ude74", teinte: "#ec4899" },
+        { id: "ialocales",    titre: "IA locales",    glyphe: "\uf2db", teinte: "#22c55e" },
+        { id: "iaenligne",    titre: "IA en ligne",   glyphe: "\uf0c2", teinte: "#3b82f6" },
+        { id: "agents",       titre: "Agents IA",     glyphe: "\udb81\udea9", teinte: "#14b8a6" }
+    ]
+    readonly property var pagesIa: ({
+        assistant: "PageAssistant.qml", ialocales: "PageIaLocales.qml", iaenligne: "PageIaEnLigne.qml", agents: "PageAgents.qml"
+    })
+    readonly property var groupes: Etat.iaInstalle
+        ? groupesTheme.slice(0, 3).concat([groupeIa], groupesTheme.slice(3))
+        : groupesTheme
+    function chargerPage() {
+        if (pagesIa[page] && Etat.iaInstalle) chargeur.setSource(Qt.resolvedUrl("ia/" + pagesIa[page]), {});
+        else chargeur.sourceComponent = pages[page] || pageAccueil;
+    }
+    onPageChanged: chargerPage()
+    Component.onCompleted: chargerPage()
+
     readonly property var pages: ({
         accueil: pageAccueil, bluetooth: pageBluetooth, reseau: pageReseau, options: pageOptions,
         applications: pageApplications, jeux: pageJeux, ecran: pageEcran, son: pageSon,
@@ -260,7 +280,6 @@ FloatingWindow {
                     id: chargeur
                     x: 36
                     width: defilement.width - 72
-                    sourceComponent: fenetre.pages[fenetre.page] || pageAccueil
                     onLoaded: defilement.contentY = 0
                     onItemChanged: if (item) item.width = Qt.binding(() => chargeur.width)
                 }

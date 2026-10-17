@@ -1,0 +1,487 @@
+#!/usr/bin/env python3
+"""NexusOS — espace IA : IA locales, IA en ligne, assistant et agents.
+
+Rangement (rien n'est mélangé) :
+  ~/IA/Locales/<nom>/ia.json        une IA locale (modèle Ollama)
+  ~/IA/En-ligne/<nom>/ia.json       une IA en ligne (fournisseur, adresse, modèle)
+  ~/.config/nexusos/ia-cles.json    les clés API (droits 600, jamais dans ~/IA)
+  ~/IA/Agents/<nom>/agent.json      un agent ; ses résultats dans ~/IA/Agents/<nom>/travail/
+  ~/IA/Créations/                   ce que l'assistant crée (CV, maquettes…)
+  ~/IA/Assistant/conversation.json  la conversation en cours
+
+Toutes les commandes répondent par UNE ligne JSON.
+  nexus-ia etat
+  nexus-ia ajouter-locale NOM MODELE
+  nexus-ia ajouter-en-ligne NOM FOURNISSEUR MODELE CLE [ADRESSE]
+  nexus-ia supprimer locale|en-ligne NOM
+  nexus-ia defaut locale|en-ligne NOM
+  nexus-ia tester locale|en-ligne NOM
+  nexus-ia demander MODE TEXTE          (MODE : discussion, cv, maquette)
+  nexus-ia nouvelle-conversation
+  nexus-ia ajouter-agent NOM ROLE TYPE_IA NOM_IA [CONSIGNES]
+  nexus-ia agent-actif NOM on|off
+  nexus-ia supprimer-agent NOM
+  nexus-ia lancer-agent NOM TACHE
+"""
+import fcntl
+import html
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+MAISON = Path.home()
+RACINE = MAISON / "IA"
+LOCALES = RACINE / "Locales"
+EN_LIGNE = RACINE / "En-ligne"
+AGENTS = RACINE / "Agents"
+CREATIONS = RACINE / "Créations"
+ASSISTANT = RACINE / "Assistant"
+CONF = MAISON / ".config" / "nexusos"
+CLES = CONF / "ia-cles.json"
+REGLAGES = CONF / "ia.json"
+OLLAMA = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+
+# Fournisseurs en ligne connus : adresse de l'API et type de protocole
+FOURNISSEURS = {
+    "mistral":    {"nom": "Mistral",          "adresse": "https://api.mistral.ai/v1",                               "protocole": "openai"},
+    "gemini":     {"nom": "Google Gemini",    "adresse": "https://generativelanguage.googleapis.com/v1beta/openai", "protocole": "openai"},
+    "openai":     {"nom": "OpenAI",           "adresse": "https://api.openai.com/v1",                               "protocole": "openai"},
+    "anthropic":  {"nom": "Anthropic Claude", "adresse": "https://api.anthropic.com/v1",                            "protocole": "anthropic"},
+    "openrouter": {"nom": "OpenRouter",       "adresse": "https://openrouter.ai/api/v1",                            "protocole": "openai"},
+    "groq":       {"nom": "Groq",             "adresse": "https://api.groq.com/openai/v1",                          "protocole": "openai"},
+    "autre":      {"nom": "Autre (compatible OpenAI)", "adresse": "",                                               "protocole": "openai"},
+}
+
+# Rôles proposés pour les agents (repris des agents nexus-agents)
+ROLES = {
+    "debogueur":  "Tu es le débogueur de NexusOS (Arch Linux, Hyprland). Analyse l'erreur ou le journal fourni, "
+                  "explique la cause en français simple et propose une correction précise.",
+    "codeur":     "Tu es le codeur de NexusOS. Écris le script ou le fichier demandé, complet et commenté en français. "
+                  "Bash : variables entre guillemets, paru jamais en root.",
+    "relecteur":  "Tu es le relecteur de NexusOS. Vérifie que chaque demande est réalisée et signale les risques.",
+    "redacteur":  "Tu es le rédacteur de NexusOS. Écris une documentation claire en français pour un débutant.",
+    "libre":      "Tu es un agent de NexusOS. Réalise la tâche demandée avec soin et réponds en français.",
+}
+
+CONSIGNE_ASSISTANT = ("Tu es l'assistant de NexusOS, un système Linux. Tu aides l'utilisateur pour des tâches simples : "
+                      "résumer, traduire, expliquer, rédiger. Réponds en français, clairement et brièvement.")
+CONSIGNE_CV = ("Tu crées des CV et des lettres. Réponds UNIQUEMENT par un document HTML complet (<!doctype html>…), "
+               "mis en page sobrement avec du CSS intégré, en français, prêt à être converti en document LibreOffice. "
+               "Pas d'explication autour, pas de balises de code markdown.")
+CONSIGNE_MAQUETTE = ("Tu conçois des maquettes d'interface (page web, écran d'application). Réponds UNIQUEMENT par un "
+                     "fichier HTML complet et autonome (CSS intégré, aucune ressource externe), moderne et soigné. "
+                     "Pas d'explication autour, pas de balises de code markdown.")
+
+
+# ─────────────────────────── outils ───────────────────────────
+
+def sortir(obj):
+    print(json.dumps(obj, ensure_ascii=False), flush=True)
+
+
+def ok(message="", **extra):
+    sortir(dict(ok=True, message=message, **extra))
+
+
+def echec(message, **extra):
+    sortir(dict(ok=False, message=message, **extra))
+
+
+def lire_json(p, defaut):
+    try:
+        return json.loads(Path(p).read_text())
+    except (OSError, ValueError):
+        return defaut
+
+
+def ecrire_json(p, donnees, prive=False):
+    p = Path(p)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(donnees, ensure_ascii=False, indent=2))
+    if prive:
+        os.chmod(tmp, 0o600)
+    tmp.replace(p)
+
+
+def nom_valide(nom):
+    nom = nom.strip()
+    if not re.fullmatch(r"[\w][\w .\-]{0,40}", nom):
+        raise ValueError("Nom invalide : lettres, chiffres, espaces, points et tirets (40 caractères maximum)")
+    return nom
+
+
+def preparer_dossiers():
+    for d in (LOCALES, EN_LIGNE, AGENTS, CREATIONS, ASSISTANT):
+        d.mkdir(parents=True, exist_ok=True)
+    CONF.mkdir(parents=True, exist_ok=True)
+
+
+def dossier_de(type_ia):
+    if type_ia == "locale":
+        return LOCALES
+    if type_ia == "en-ligne":
+        return EN_LIGNE
+    raise ValueError("Type d'IA inconnu (locale ou en-ligne)")
+
+
+def lister(dossier, fichier="ia.json"):
+    res = []
+    if dossier.is_dir():
+        for d in sorted(dossier.iterdir()):
+            info = lire_json(d / fichier, None)
+            if isinstance(info, dict):
+                info["nom"] = d.name
+                info["dossier"] = str(d)
+                res.append(info)
+    return res
+
+
+def http_json(url, corps, entetes, delai):
+    req = urllib.request.Request(url, data=json.dumps(corps).encode(), method="POST",
+                                 headers={"Content-Type": "application/json", **entetes})
+    with urllib.request.urlopen(req, timeout=delai) as r:
+        return json.loads(r.read().decode())
+
+
+def ollama_modeles():
+    try:
+        with urllib.request.urlopen(OLLAMA + "/api/tags", timeout=3) as r:
+            return [m.get("name", "") for m in json.loads(r.read().decode()).get("models", [])]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# ─────────────────────────── appel d'une IA ───────────────────────────
+
+def trouver_ia(type_ia=None, nom=None):
+    """Retourne (type, nom, config) de l'IA demandée, sinon de l'IA par défaut, sinon la première trouvée."""
+    reglages = lire_json(REGLAGES, {})
+    if not type_ia:
+        defaut = reglages.get("defaut") or {}
+        type_ia, nom = defaut.get("type"), defaut.get("nom")
+    if type_ia and nom:
+        conf = lire_json(dossier_de(type_ia) / nom / "ia.json", None)
+        if conf:
+            return type_ia, nom, conf
+    for t in ("locale", "en-ligne"):
+        liste = lister(dossier_de(t))
+        if liste:
+            return t, liste[0]["nom"], liste[0]
+    raise RuntimeError("Aucune IA configurée : ajoutes-en une dans Paramètres › IA locales ou IA en ligne")
+
+
+def appeler(type_ia, nom, conf, messages, consigne, delai=600):
+    """Envoie la conversation à l'IA et renvoie le texte de sa réponse."""
+    if type_ia == "locale":
+        corps = {"model": conf["modele"], "stream": False,
+                 "messages": [{"role": "system", "content": consigne}] + messages}
+        try:
+            r = http_json(OLLAMA + "/api/chat", corps, {}, delai)
+        except urllib.error.URLError:
+            raise RuntimeError("Ollama ne répond pas : est-il installé et démarré ? (Paramètres › IA locales)")
+        return r.get("message", {}).get("content", "").strip()
+
+    cle = lire_json(CLES, {}).get(nom, "")
+    if not cle:
+        raise RuntimeError(f"Pas de clé API enregistrée pour « {nom} »")
+    adresse = conf.get("adresse", "").rstrip("/")
+    try:
+        if conf.get("protocole") == "anthropic":
+            r = http_json(adresse + "/messages",
+                          {"model": conf["modele"], "max_tokens": 4096, "system": consigne, "messages": messages},
+                          {"x-api-key": cle, "anthropic-version": "2023-06-01"}, delai)
+            return "".join(b.get("text", "") for b in r.get("content", []) if b.get("type") == "text").strip()
+        r = http_json(adresse + "/chat/completions",
+                      {"model": conf["modele"], "messages": [{"role": "system", "content": consigne}] + messages},
+                      {"Authorization": "Bearer " + cle}, delai)
+        return r["choices"][0]["message"]["content"].strip()
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = json.loads(e.read().decode()).get("error", "")
+            detail = detail.get("message", "") if isinstance(detail, dict) else str(detail)
+        except Exception:  # noqa: BLE001
+            pass
+        if e.code in (401, 403):
+            raise RuntimeError("Clé API refusée : vérifie-la dans Paramètres › IA en ligne")
+        if e.code == 429:
+            raise RuntimeError("Limite d'utilisation atteinte chez le fournisseur, réessaie plus tard")
+        raise RuntimeError(f"Erreur {e.code} du fournisseur. {detail}".strip())
+    except urllib.error.URLError:
+        raise RuntimeError("Impossible de joindre le fournisseur : vérifie la connexion Internet")
+
+
+def extraire_html(texte):
+    """Récupère le document HTML même si l'IA l'a entouré de ``` ou d'explications."""
+    m = re.search(r"```(?:html)?\s*(.*?)```", texte, re.S | re.I)
+    if m:
+        texte = m.group(1)
+    debut = re.search(r"<!doctype html|<html", texte, re.I)
+    if debut:
+        texte = texte[debut.start():]
+    fin = texte.lower().rfind("</html>")
+    if fin >= 0:
+        texte = texte[:fin + 7]
+    if "<html" not in texte.lower():
+        texte = ("<!doctype html><html lang='fr'><meta charset='utf-8'><body><pre>"
+                 + html.escape(texte) + "</pre></body></html>")
+    return texte
+
+
+def ouvrir(chemin):
+    subprocess.Popen(["xdg-open", str(chemin)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
+
+
+# ─────────────────────────── commandes ───────────────────────────
+
+def cmd_etat():
+    preparer_dossiers()
+    cles = lire_json(CLES, {})
+    modeles = ollama_modeles()
+    locales = lister(LOCALES)
+    for ia in locales:
+        ia["telecharge"] = modeles is not None and any(m == ia.get("modele") or m.split(":")[0] == ia.get("modele")
+                                                       for m in modeles)
+    en_ligne = lister(EN_LIGNE)
+    for ia in en_ligne:
+        ia["cle"] = bool(cles.get(ia["nom"]))
+        ia["fournisseurNom"] = FOURNISSEURS.get(ia.get("fournisseur", ""), {}).get("nom", ia.get("fournisseur", ""))
+    agents = lister(AGENTS, "agent.json")
+    for a in agents:
+        travail = Path(a["dossier"]) / "travail"
+        a["resultats"] = len(list(travail.glob("*.md"))) if travail.is_dir() else 0
+    reglages = lire_json(REGLAGES, {})
+    conv = lire_json(ASSISTANT / "conversation.json", [])
+    sortir({
+        "ollamaInstalle": shutil.which("ollama") is not None,
+        "ollamaActif": modeles is not None,
+        "modelesOllama": modeles or [],
+        "locales": locales, "enLigne": en_ligne, "agents": agents,
+        "defaut": reglages.get("defaut") or {},
+        "autorisations": reglages.get("autorisations") or {"creer": True, "lire": False},
+        "fournisseurs": [{"id": k, **v} for k, v in FOURNISSEURS.items()],
+        "roles": list(ROLES.keys()),
+        "conversation": conv[-40:],
+        "dossiers": {"racine": str(RACINE), "locales": str(LOCALES), "enLigne": str(EN_LIGNE),
+                     "agents": str(AGENTS), "creations": str(CREATIONS)},
+    })
+
+
+def cmd_ajouter_locale(nom, modele):
+    nom = nom_valide(nom)
+    modele = modele.strip()
+    if not re.fullmatch(r"[\w.\-/:]+", modele):
+        raise ValueError("Nom de modèle invalide (ex. qwen2.5:1.5b)")
+    preparer_dossiers()
+    d = LOCALES / nom
+    if d.exists():
+        raise ValueError(f"Une IA locale « {nom} » existe déjà")
+    d.mkdir(parents=True)
+    ecrire_json(d / "ia.json", {"type": "locale", "modele": modele, "ajoutee": int(time.time())})
+    definir_defaut_si_aucun("locale", nom)
+    ok(f"IA locale « {nom} » ajoutée")
+
+
+def cmd_ajouter_en_ligne(nom, fournisseur, modele, cle, adresse=""):
+    nom = nom_valide(nom)
+    if fournisseur not in FOURNISSEURS:
+        raise ValueError("Fournisseur inconnu")
+    adresse = (adresse or FOURNISSEURS[fournisseur]["adresse"]).strip()
+    if not adresse.startswith("https://") and not adresse.startswith("http://127.0.0.1"):
+        raise ValueError("L'adresse de l'API doit commencer par https://")
+    if not modele.strip() or not cle.strip():
+        raise ValueError("Le modèle et la clé API sont obligatoires")
+    preparer_dossiers()
+    d = EN_LIGNE / nom
+    if d.exists():
+        raise ValueError(f"Une IA en ligne « {nom} » existe déjà")
+    d.mkdir(parents=True)
+    ecrire_json(d / "ia.json", {"type": "en-ligne", "fournisseur": fournisseur, "modele": modele.strip(),
+                                "adresse": adresse, "protocole": FOURNISSEURS[fournisseur]["protocole"],
+                                "ajoutee": int(time.time())})
+    cles = lire_json(CLES, {})
+    cles[nom] = cle.strip()
+    ecrire_json(CLES, cles, prive=True)
+    definir_defaut_si_aucun("en-ligne", nom)
+    ok(f"IA en ligne « {nom} » ajoutée")
+
+
+def definir_defaut_si_aucun(type_ia, nom):
+    reglages = lire_json(REGLAGES, {})
+    if not reglages.get("defaut"):
+        reglages["defaut"] = {"type": type_ia, "nom": nom}
+        ecrire_json(REGLAGES, reglages)
+
+
+def cmd_supprimer(type_ia, nom):
+    d = dossier_de(type_ia) / nom
+    if not (d / "ia.json").exists():
+        raise ValueError("IA introuvable")
+    shutil.rmtree(d)
+    if type_ia == "en-ligne":
+        cles = lire_json(CLES, {})
+        cles.pop(nom, None)
+        ecrire_json(CLES, cles, prive=True)
+    reglages = lire_json(REGLAGES, {})
+    if reglages.get("defaut") == {"type": type_ia, "nom": nom}:
+        reglages["defaut"] = {}
+        ecrire_json(REGLAGES, reglages)
+    ok(f"« {nom} » supprimée")
+
+
+def cmd_defaut(type_ia, nom):
+    if not (dossier_de(type_ia) / nom / "ia.json").exists():
+        raise ValueError("IA introuvable")
+    reglages = lire_json(REGLAGES, {})
+    reglages["defaut"] = {"type": type_ia, "nom": nom}
+    ecrire_json(REGLAGES, reglages)
+    ok(f"« {nom} » est maintenant l'IA par défaut")
+
+
+def cmd_autorisation(cle, valeur):
+    if cle not in ("creer", "lire"):
+        raise ValueError("Autorisation inconnue")
+    reglages = lire_json(REGLAGES, {})
+    aut = reglages.get("autorisations") or {"creer": True, "lire": False}
+    aut[cle] = valeur == "on"
+    reglages["autorisations"] = aut
+    ecrire_json(REGLAGES, reglages)
+    ok()
+
+
+def cmd_tester(type_ia, nom):
+    t, n, conf = trouver_ia(type_ia, nom)
+    debut = time.time()
+    rep = appeler(t, n, conf, [{"role": "user", "content": "Réponds seulement : OK"}],
+                  "Tu réponds en un mot.", delai=180)
+    ok(f"« {n} » répond en {time.time() - debut:.1f} s : {rep[:60]}")
+
+
+def cmd_demander(mode, texte):
+    preparer_dossiers()
+    t, n, conf = trouver_ia()
+    fichier_conv = ASSISTANT / "conversation.json"
+    conv = lire_json(fichier_conv, [])
+    consigne = {"cv": CONSIGNE_CV, "maquette": CONSIGNE_MAQUETTE}.get(mode, CONSIGNE_ASSISTANT)
+    # Pour une création, on n'envoie que la demande ; en discussion, les derniers échanges
+    messages = [{"role": "user", "content": texte}] if mode in ("cv", "maquette") else \
+        [{"role": m["role"], "content": m["content"]} for m in conv[-12:]] + [{"role": "user", "content": texte}]
+    reponse = appeler(t, n, conf, messages, consigne)
+    fichier = ""
+    if mode in ("cv", "maquette"):
+        aut = (lire_json(REGLAGES, {}).get("autorisations") or {"creer": True})
+        if not aut.get("creer", True):
+            raise RuntimeError("La création de fichiers est désactivée (Paramètres › Assistant IA)")
+        horodatage = time.strftime("%Y-%m-%d_%H-%M-%S")
+        page = CREATIONS / f"{'CV' if mode == 'cv' else 'Maquette'}_{horodatage}.html"
+        page.write_text(extraire_html(reponse))
+        fichier = str(page)
+        if mode == "cv" and shutil.which("soffice"):
+            # Conversion en document LibreOffice (modifiable)
+            subprocess.run(["soffice", "--headless", "--convert-to", "odt", "--outdir", str(CREATIONS), str(page)],
+                           capture_output=True, timeout=120)
+            odt = page.with_suffix(".odt")
+            if odt.exists():
+                fichier = str(odt)
+        ouvrir(fichier)
+        reponse = ("J'ai créé ton CV : " if mode == "cv" else "J'ai créé ta maquette : ") + Path(fichier).name
+    conv += [{"role": "user", "content": texte, "mode": mode},
+             {"role": "assistant", "content": reponse, "ia": n, "fichier": fichier}]
+    ecrire_json(fichier_conv, conv[-200:])
+    ok(reponse, ia=n, fichier=fichier)
+
+
+def cmd_nouvelle_conversation():
+    ecrire_json(ASSISTANT / "conversation.json", [])
+    ok("Nouvelle conversation")
+
+
+def cmd_ajouter_agent(nom, role, type_ia, nom_ia, consignes=""):
+    nom = nom_valide(nom)
+    if role not in ROLES:
+        raise ValueError("Rôle inconnu")
+    if not (dossier_de(type_ia) / nom_ia / "ia.json").exists():
+        raise ValueError("L'IA choisie pour cet agent n'existe pas")
+    d = AGENTS / nom
+    if d.exists():
+        raise ValueError(f"Un agent « {nom} » existe déjà")
+    (d / "travail").mkdir(parents=True)
+    ecrire_json(d / "agent.json", {"role": role, "consignes": consignes or ROLES[role], "ia": {"type": type_ia, "nom": nom_ia},
+                                   "actif": True, "ajoute": int(time.time())})
+    ok(f"Agent « {nom} » créé dans {d}")
+
+
+def cmd_agent_actif(nom, etat):
+    f = AGENTS / nom / "agent.json"
+    a = lire_json(f, None)
+    if a is None:
+        raise ValueError("Agent introuvable")
+    a["actif"] = etat == "on"
+    ecrire_json(f, a)
+    ok()
+
+
+def cmd_supprimer_agent(nom):
+    d = AGENTS / nom
+    if not (d / "agent.json").exists():
+        raise ValueError("Agent introuvable")
+    shutil.rmtree(d)
+    ok(f"Agent « {nom} » supprimé")
+
+
+def cmd_lancer_agent(nom, tache):
+    d = AGENTS / nom
+    a = lire_json(d / "agent.json", None)
+    if a is None:
+        raise ValueError("Agent introuvable")
+    if not a.get("actif", True):
+        raise ValueError("Cet agent est désactivé")
+    t, n, conf = trouver_ia(a["ia"]["type"], a["ia"]["nom"])
+    # Un agent à la fois : les autres attendent leur tour (économise la mémoire)
+    verrou = open(AGENTS / ".verrou", "w")
+    fcntl.flock(verrou, fcntl.LOCK_EX)
+    try:
+        debut = time.time()
+        rep = appeler(t, n, conf, [{"role": "user", "content": tache}], a.get("consignes") or ROLES["libre"])
+    finally:
+        fcntl.flock(verrou, fcntl.LOCK_UN)
+    resultat = d / "travail" / (time.strftime("%Y-%m-%d_%H-%M-%S") + ".md")
+    resultat.write_text(f"# {nom} — {time.strftime('%d/%m/%Y %H:%M')}\n\n## Tâche\n\n{tache}\n\n"
+                        f"## Réponse ({n}, {time.time() - debut:.0f} s)\n\n{rep}\n")
+    ok(f"Résultat de « {nom} » enregistré", fichier=str(resultat))
+
+
+COMMANDES = {
+    "etat": cmd_etat, "ajouter-locale": cmd_ajouter_locale, "ajouter-en-ligne": cmd_ajouter_en_ligne,
+    "supprimer": cmd_supprimer, "defaut": cmd_defaut, "autorisation": cmd_autorisation, "tester": cmd_tester,
+    "demander": cmd_demander, "nouvelle-conversation": cmd_nouvelle_conversation,
+    "ajouter-agent": cmd_ajouter_agent, "agent-actif": cmd_agent_actif, "supprimer-agent": cmd_supprimer_agent,
+    "lancer-agent": cmd_lancer_agent,
+}
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] not in COMMANDES:
+        echec("commande inconnue (voir nexus-ia --aide)" if len(sys.argv) > 1 else __doc__)
+        return
+    try:
+        COMMANDES[sys.argv[1]](*sys.argv[2:])
+    except TypeError:
+        echec("arguments manquants ou en trop")
+    except (ValueError, RuntimeError) as e:
+        echec(str(e))
+    except Exception as e:  # noqa: BLE001 — la fenêtre ne doit jamais rester sans réponse
+        echec(f"Erreur inattendue : {e}")
+
+
+if __name__ == "__main__":
+    main()

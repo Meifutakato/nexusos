@@ -32,6 +32,62 @@ Singleton {
         menuOuvert = false;
     }
 
+    // ── Emplacement pour le module IA (dossier ia-nexusos, installé à part) ──
+    // Le thème ne contient aucune IA : si le module est installé, il dépose ses fichiers dans
+    // ~/.config/quickshell/ia/ (avec module.json) et le groupe « Intelligence artificielle »
+    // apparaît dans les Paramètres. Sinon, rien ne change.
+    property bool iaInstalle: false
+    FileView {
+        path: Quickshell.env("HOME") + "/.config/quickshell/ia/module.json"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: etat.iaInstalle = true
+        onLoadFailed: etat.iaInstalle = false
+    }
+    property bool assistantOuvert: false
+    property string modeAssistant: "discussion"      // discussion, cv ou maquette
+    function ouvrirAssistant(mode) {
+        if (!iaInstalle) return;
+        if (mode) modeAssistant = mode;
+        assistantOuvert = false;
+        assistantOuvert = true;
+        menuOuvert = false;
+    }
+    // Commandes du module IA (nexus-ia), une à la fois, sans bloquer les autres réglages
+    signal iaTerminee()
+    property var fileIa: []
+    readonly property bool iaOccupee: executeurIa.running
+    function agirIa(args) {
+        const f = fileIa.slice();
+        f.push(args);
+        fileIa = f;
+        iaSuivante();
+    }
+    function iaSuivante() {
+        if (executeurIa.running || fileIa.length === 0) return;
+        const f = fileIa.slice();
+        const a = f.shift();
+        fileIa = f;
+        executeurIa.command = ["nexus-ia"].concat(a);
+        executeurIa.running = true;
+    }
+    Process {
+        id: executeurIa
+        stdout: SplitParser {
+            onRead: ligne => {
+                try {
+                    const r = JSON.parse(ligne);
+                    if (r.message) etat.notifier(r.message, r.ok);
+                } catch (e) {}
+            }
+        }
+        onExited: (code, statut) => {
+            etat.iaTerminee();
+            etat.iaSuivante();
+        }
+    }
+
     // Programme qui lit et règle le système pour les Paramètres
     readonly property string programmeParam: Quickshell.env("HOME") + "/.config/quickshell/nexus-param.py"
 
