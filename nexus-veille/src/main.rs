@@ -69,23 +69,75 @@ fn nom_unite(programme: &str) -> String {
         .collect()
 }
 
+/// Le programme « parlant » d'une commande : saute env, pkexec, options et VAR=valeur.
+fn programme_principal(commande: &[String]) -> &str {
+    commande
+        .iter()
+        .map(String::as_str)
+        .find(|a| {
+            !a.starts_with('-')
+                && !a.contains('=')
+                && !matches!(Path::new(a).file_name().and_then(|n| n.to_str()), Some("env" | "pkexec" | "nohup" | "setsid"))
+        })
+        .unwrap_or(&commande[0])
+}
+
+/// Bus de session systemd joignable ? Sinon systemd-run échouerait et l'appli ne s'ouvrirait pas.
+fn bus_systemd_disponible() -> bool {
+    std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_some()
+        || std::env::var_os("XDG_RUNTIME_DIR")
+            .map(|r| Path::new(&r).join("bus").exists())
+            .unwrap_or(false)
+}
+
+/// Petit journal des lancements : ~/.cache/nexus-veille-lance.log (remis à zéro au-delà de 64 Ko).
+fn noter_lancement(message: &str) {
+    use std::io::Write;
+    let Some(maison) = std::env::var_os("HOME") else { return };
+    let chemin = Path::new(&maison).join(".cache").join("nexus-veille-lance.log");
+    let _ = std::fs::create_dir_all(chemin.parent().unwrap_or(Path::new("/tmp")));
+    let trop_gros = std::fs::metadata(&chemin).map(|m| m.len() > 65_536).unwrap_or(false);
+    let fichier = std::fs::OpenOptions::new()
+        .create(true)
+        .append(!trop_gros)
+        .write(true)
+        .truncate(trop_gros)
+        .open(&chemin);
+    if let Ok(mut f) = fichier {
+        let secondes = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let _ = writeln!(f, "{secondes} {message}");
+    }
+}
+
+fn lancement_direct(commande: &[String], raison: &str) -> ! {
+    noter_lancement(&format!("SECOURS ({raison}) : {} — sans veille possible", commande.join(" ")));
+    let erreur = Command::new(&commande[0]).args(&commande[1..]).exec();
+    noter_lancement(&format!("ÉCHEC : {} ({erreur})", commande[0]));
+    eprintln!("Impossible de lancer {} : {erreur}", commande[0]);
+    exit(1);
+}
+
 fn lance(commande: &[String]) -> ! {
     if commande.is_empty() {
         eprintln!("Usage : nexus-veille lance <programme> [args]");
         exit(2);
     }
-    let unite = format!("app-nexus-{}-{}", nom_unite(&commande[0]), std::process::id());
+    if !bus_systemd_disponible() {
+        lancement_direct(commande, "bus systemd introuvable");
+    }
+    let unite = format!("app-nexus-{}-{}", nom_unite(programme_principal(commande)), std::process::id());
+    noter_lancement(&format!("OK : {} → {unite}.scope", commande.join(" ")));
     let erreur = Command::new("systemd-run")
         .args(["--user", "--scope", "--quiet", "--collect", "--slice=app.slice"])
         .arg(format!("--unit={unite}"))
         .arg("--")
         .args(commande)
         .exec();
-    // systemd-run indisponible : on lance quand même l'appli (simplement sans veille possible).
-    eprintln!("⚠ systemd-run impossible ({erreur}) — lancement direct");
-    let erreur = Command::new(&commande[0]).args(&commande[1..]).exec();
-    eprintln!("Impossible de lancer {} : {erreur}", commande[0]);
-    exit(1);
+    // systemd-run absent : on lance quand même l'appli (simplement sans veille possible).
+    lancement_direct(commande, &format!("systemd-run impossible : {erreur}"))
 }
 
 // ---------------------------------------------------------------- statut
@@ -337,5 +389,13 @@ mod tests {
         assert_eq!(nom_unite("/usr/bin/Firefox"), "firefox");
         assert_eq!(nom_unite("libreoffice --writer"), "libreoffice---writer");
         assert_eq!(nom_unite("org.gnome.Nautilus"), "org-gnome-nautilus");
+    }
+
+    #[test]
+    fn programme_principal_saute_les_enveloppes() {
+        let v = |s: &str| s.split(' ').map(String::from).collect::<Vec<_>>();
+        assert_eq!(programme_principal(&v("firefox --new-window")), "firefox");
+        assert_eq!(programme_principal(&v("env GDK_BACKEND=wayland /usr/bin/thunar")), "/usr/bin/thunar");
+        assert_eq!(programme_principal(&v("pkexec systemctl enable ollama")), "systemctl");
     }
 }

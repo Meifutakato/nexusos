@@ -111,5 +111,26 @@ else
   fi
 fi
 
+# Tout ce que Quickshell lance avec Etat.lancer([...]) passe aussi par la veille
+# (recommandés, espace IA, xdg-open…). Copie de secours : Etat.qml.avant-lancer
+ANCIEN='function lancer(commande) { Quickshell.execDetached(commande); }'
+NOUVEAU='function lancer(commande) { Quickshell.execDetached(["nexus-veille", "lance"].concat(commande)); }'
+if [[ -f "$ETAT" ]]; then
+  if grep -qF "$NOUVEAU" "$ETAT"; then
+    log "   Etat.lancer déjà branché"
+  elif grep -qF "$ANCIEN" "$ETAT"; then
+    sudo -u "$USER_NAME" cp "$ETAT" "$ETAT.avant-lancer"
+    sudo -u "$USER_NAME" sed -i "s|$ANCIEN|$NOUVEAU|" "$ETAT"
+    if grep -qF "$NOUVEAU" "$ETAT"; then
+      log "   Etat.lancer branché (recommandés, espace IA…)"
+    else
+      log "   ⚠ Etat.lancer non modifié : retour au fichier d'origine"
+      sudo -u "$USER_NAME" cp "$ETAT.avant-lancer" "$ETAT"
+    fi
+  else
+    log "   ⚠ Etat.lancer a une forme inattendue : non modifié"
+  fi
+fi
+
 log "Phase 6b terminée. Au prochain lancement de Hyprland, la veille démarre toute seule."
 log "Contrôle : nexus-veille statut   ·   journal : journalctl --user -u nexus-veille -f"
