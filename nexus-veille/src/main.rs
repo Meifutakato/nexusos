@@ -32,6 +32,7 @@ fn main() {
         None | Some("demon") => demon(),
         Some("lance") => lance(&args[1..]),
         Some("statut") | Some("--statut") => statut(),
+        Some("json") => println!("{}", etat_json()),
         Some("degeler-tout") | Some("--degeler-tout") => {
             println!("{} appli(s) réveillée(s)", cgroup::degeler_tout());
         }
@@ -50,6 +51,7 @@ fn aide() {
          nexus-veille lance <programme> [args]   lancer une appli (veille possible)\n\
          nexus-veille statut                     état des applis\n\
          nexus-veille degeler-tout               tout réveiller\n\
+         nexus-veille json                       état pour la page Mémoire des Paramètres\n\
          nexus-veille demon                      service (systemd)\n\n\
          Réglages : {}",
         Config::chemin().display()
@@ -225,6 +227,62 @@ fn statut() {
     }
 }
 
+// ---------------------------------------------------------------- json
+
+fn texte_json(s: &str) -> String {
+    let mut sortie = String::from("\"");
+    for c in s.chars() {
+        match c {
+            '"' => sortie.push_str("\\\""),
+            '\\' => sortie.push_str("\\\\"),
+            c if (c as u32) < 0x20 => sortie.push_str(&format!("\\u{:04x}", c as u32)),
+            c => sortie.push(c),
+        }
+    }
+    sortie.push('"');
+    sortie
+}
+
+/// Nom lisible d'une appli : « nexus-firefox-10580 » → « firefox »
+fn nom_appli(nom_court: &str) -> String {
+    let sans_prefixe = nom_court.strip_prefix("nexus-").unwrap_or(nom_court);
+    match sans_prefixe.rsplit_once('-') {
+        Some((nom, pid)) if !nom.is_empty() && pid.chars().all(|c| c.is_ascii_digit()) => nom.to_string(),
+        _ => sans_prefixe.to_string(),
+    }
+}
+
+/// État de la veille en une ligne JSON (lu par nexus-param.py pour la page Mémoire).
+fn etat_json() -> String {
+    let cfg = Config::charger();
+    let applis: Vec<String> = cgroup::scopes_apps()
+        .iter()
+        .map(|s| {
+            let court = cgroup::nom_court(s);
+            format!(
+                "{{\"appli\":{},\"scope\":{},\"enVeille\":{},\"ram\":{},\"compressee\":{}}}",
+                texte_json(&nom_appli(&court)),
+                texte_json(&court),
+                cgroup::est_gelee(s),
+                cgroup::lire_u64(s, "memory.current").unwrap_or(0),
+                cgroup::lire_u64(s, "memory.swap.current").unwrap_or(0)
+            )
+        })
+        .collect();
+    let zram = match cgroup::zram_stats() {
+        Some((origine, occupe, taille)) => {
+            format!("{{\"donnees\":{origine},\"occupe\":{occupe},\"taille\":{taille}}}")
+        }
+        None => "null".into(),
+    };
+    format!(
+        "{{\"delai\":{},\"applis\":[{}],\"zram\":{}}}",
+        cfg.geler_apres_secondes,
+        applis.join(","),
+        zram
+    )
+}
+
 // ---------------------------------------------------------------- démon
 
 struct Suivi {
@@ -389,6 +447,16 @@ mod tests {
         assert_eq!(nom_unite("/usr/bin/Firefox"), "firefox");
         assert_eq!(nom_unite("libreoffice --writer"), "libreoffice---writer");
         assert_eq!(nom_unite("org.gnome.Nautilus"), "org-gnome-nautilus");
+    }
+
+    #[test]
+    fn json_lisible() {
+        assert_eq!(nom_appli("nexus-firefox-10580"), "firefox");
+        assert_eq!(nom_appli("nexus-org-gnome-nautilus-42"), "org-gnome-nautilus");
+        assert_eq!(nom_appli("autre"), "autre");
+        assert_eq!(texte_json("a\"b\\c\n"), "\"a\\\"b\\\\c\\u000a\"");
+        // La sortie complète doit être du JSON valide, relu par notre propre lecteur
+        assert!(json::lire(&etat_json()).is_ok());
     }
 
     #[test]

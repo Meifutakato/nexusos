@@ -616,6 +616,129 @@ ACTIONS.update({"replay-actif": act_replay_actif, "replay-reglage": act_replay_r
 
 
 
+# ─────────────────────────── MÉMOIRE ───────────────────────────
+# Page Paramètres › Mémoire et performances.
+# La veille compressée (nexus-veille, Rust) fournit son état avec « nexus-veille json ».
+
+FICHIER_VEILLE = CONF_NEXUS / "veille.toml"
+VEILLE_DESACTIVEE = CONF_NEXUS / "veille-desactivee"
+DELAIS_VEILLE = {"60", "120", "300", "600", "900"}
+
+
+def lire_meminfo():
+    infos = {}
+    with open("/proc/meminfo") as f:
+        for ligne in f:
+            cle, _, reste = ligne.partition(":")
+            morceaux = reste.split()
+            if morceaux and morceaux[0].isdigit():
+                infos[cle] = int(morceaux[0]) * 1024
+    return infos
+
+
+def applis_gourmandes(nombre=5):
+    """RAM par programme (tous ses processus additionnés), pour l'utilisateur courant."""
+    page = os.sysconf("SC_PAGE_SIZE")
+    totaux = {}
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            nom = os.path.basename(os.readlink(f"/proc/{pid}/exe"))
+            with open(f"/proc/{pid}/statm") as f:
+                rss = int(f.read().split()[1]) * page
+        except (OSError, ValueError, IndexError):
+            continue  # processus d'un autre utilisateur ou déjà terminé
+        nom = nom.replace(" (deleted)", "")
+        totaux[nom] = totaux.get(nom, 0) + rss
+    tri = sorted(totaux.items(), key=lambda e: e[1], reverse=True)[:nombre]
+    return [{"nom": n, "ram": r} for n, r in tri]
+
+
+def lire_memoire():
+    m = lire_meminfo()
+    veille = {}
+    if existe("nexus-veille"):
+        code, s = lancer(["nexus-veille", "json"])
+        if code == 0:
+            try:
+                veille = json.loads(s)
+            except ValueError:
+                veille = {}
+    _, actif = lancer(["systemctl", "--user", "is-active", "nexus-veille"])
+    _, oom = lancer(["systemctl", "is-active", "earlyoom"])
+    _, zram = lancer(["swapon", "--show=NAME", "--noheadings"])
+    sortir({
+        "ramTotale": m.get("MemTotal", 0),
+        "ramDisponible": m.get("MemAvailable", 0),
+        "swapTotal": m.get("SwapTotal", 0),
+        "swapLibre": m.get("SwapFree", 0),
+        "gourmandes": applis_gourmandes(),
+        "veilleInstallee": existe("nexus-veille"),
+        "veilleActive": actif.strip() == "active",
+        "veilleDelai": veille.get("delai", 300),
+        "veilleApplis": veille.get("applis", []),
+        "zram": veille.get("zram"),
+        "zramActif": "zram" in zram,
+        "earlyoom": oom.strip() == "active",
+    })
+
+
+def act_veille(etat):
+    if not existe("nexus-veille"):
+        echec("La veille n'est pas installée (phase 6b)")
+        return
+    CONF_NEXUS.mkdir(parents=True, exist_ok=True)
+    if etat == "on":
+        VEILLE_DESACTIVEE.unlink(missing_ok=True)
+        code, s = lancer(["systemctl", "--user", "restart", "nexus-veille"], delai=20)
+        ok("Veille activée") if code == 0 else echec(s)
+    else:
+        VEILLE_DESACTIVEE.touch()  # reste coupée après un redémarrage
+        code, s = lancer(["systemctl", "--user", "stop", "nexus-veille"], delai=20)
+        ok("Veille désactivée — toutes les applis sont réveillées") if code == 0 else echec(s)
+
+
+def act_veille_delai(secondes):
+    if secondes not in DELAIS_VEILLE:
+        echec("Délai non prévu")
+        return
+    CONF_NEXUS.mkdir(parents=True, exist_ok=True)
+    texte = FICHIER_VEILLE.read_text() if FICHIER_VEILLE.exists() else ""
+    ligne = f"geler_apres_secondes = {secondes}"
+    if re.search(r"^geler_apres_secondes\s*=.*$", texte, re.M):
+        texte = re.sub(r"^geler_apres_secondes\s*=.*$", ligne, texte, flags=re.M)
+    else:
+        texte = ligne + "\n" + texte
+    FICHIER_VEILLE.write_text(texte)
+    _, actif = lancer(["systemctl", "--user", "is-active", "nexus-veille"])
+    if actif.strip() == "active":
+        lancer(["systemctl", "--user", "restart", "nexus-veille"], delai=20)
+    minutes = int(secondes) // 60
+    ok(f"Mise en veille après {minutes} min hors écran")
+
+
+def act_veille_reveiller():
+    code, s = lancer(["nexus-veille", "degeler-tout"])
+    ok(s.strip() or "Applis réveillées") if code == 0 else echec(s)
+
+
+def act_earlyoom(etat):
+    # Service système : pkexec affiche la fenêtre de mot de passe
+    action = ["enable", "--now"] if etat == "on" else ["disable", "--now"]
+    code, s = lancer(["pkexec", "systemctl", *action, "earlyoom"], delai=120)
+    if code == 0:
+        ok("Anti-gel activé" if etat == "on" else "Anti-gel désactivé")
+    else:
+        echec("Autorisation refusée ou annulée")
+
+
+LECTURES["memoire"] = lire_memoire
+ACTIONS.update({"veille": act_veille, "veille-delai": act_veille_delai,
+                "veille-reveiller": act_veille_reveiller, "earlyoom": act_earlyoom})
+
+
+
 def main():
     if len(sys.argv) < 2:
         echec("usage : nexus-param.py <sujet|action> [arguments]")

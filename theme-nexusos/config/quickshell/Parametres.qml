@@ -42,7 +42,8 @@ FloatingWindow {
           { id: "heure",        titre: "Heure et langue",               glyphe: "", teinte: "#14b8a6" },
           { id: "securite",     titre: "Sécurité et confidentialité",   glyphe: "", teinte: "#22c55e" },
           { id: "batterie",     titre: "Batterie",                      glyphe: "", teinte: "#84cc16" } ],
-        [ { id: "maj",          titre: "Mise à jour et sauvegarde",     glyphe: "", teinte: "#3b82f6" },
+        [ { id: "memoire",      titre: "Mémoire et performances",       glyphe: "\udb80\udf5b", teinte: "#06b6d4" },
+          { id: "maj",          titre: "Mise à jour et sauvegarde",     glyphe: "", teinte: "#3b82f6" },
           { id: "apropos",      titre: "À propos de NexusOS",           glyphe: "", teinte: "#64748b" } ]
     ]
     // Groupe du module IA (ia-nexusos), seulement s'il est installé ; ses pages sont dans ~/.config/quickshell/ia/
@@ -69,7 +70,7 @@ FloatingWindow {
         accueil: pageAccueil, bluetooth: pageBluetooth, reseau: pageReseau, options: pageOptions,
         applications: pageApplications, jeux: pageJeux, ecran: pageEcran, son: pageSon,
         notifications: pageNotifications, fond: pageFond, comptes: pageComptes, heure: pageHeure,
-        securite: pageSecurite, batterie: pageBatterie, maj: pageMaj, apropos: pageAPropos
+        securite: pageSecurite, batterie: pageBatterie, memoire: pageMemoire, maj: pageMaj, apropos: pageAPropos
     })
     function titreDe(id) {
         for (let g = 0; g < groupes.length; g++)
@@ -96,6 +97,7 @@ FloatingWindow {
     Component { id: pageHeure;         PageHeure {} }
     Component { id: pageSecurite;      PageSecurite {} }
     Component { id: pageBatterie;      PageBatterie {} }
+    Component { id: pageMemoire;       PageMemoire {} }
     Component { id: pageMaj;           PageMaj {} }
     Component { id: pageAPropos;       PageAPropos {} }
 
