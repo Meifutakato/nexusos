@@ -47,11 +47,11 @@ install -Dm644 "$SRC/systeme/nexus-veille.service" /etc/systemd/user/nexus-veill
 
 sudo -u "$USER_NAME" mkdir -p "$USER_HOME/.config/nexusos" "$USER_HOME/.config/hypr"
 if [[ ! -f "$USER_HOME/.config/nexusos/veille.toml" ]]; then
-  sudo -u "$USER_NAME" cp "$SRC/systeme/veille.toml" "$USER_HOME/.config/nexusos/veille.toml"
+  install -m644 -o "$USER_NAME" -g "$(id -gn "$USER_NAME")" "$SRC/systeme/veille.toml" "$USER_HOME/.config/nexusos/veille.toml"
 else
   log "   veille.toml existant conservé"
 fi
-sudo -u "$USER_NAME" cp "$SRC/systeme/hyprland-veille.conf" "$USER_HOME/.config/hypr/nexus-veille.conf"
+install -m644 -o "$USER_NAME" -g "$(id -gn "$USER_NAME")" "$SRC/systeme/hyprland-veille.conf" "$USER_HOME/.config/hypr/nexus-veille.conf"
 
 # ------------------------------------------------------------
 log "5/5 Branchement Hyprland"
