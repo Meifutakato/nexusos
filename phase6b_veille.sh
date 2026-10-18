@@ -53,6 +53,14 @@ else
 fi
 install -m644 -o "$USER_NAME" -g "$(id -gn "$USER_NAME")" "$SRC/systeme/hyprland-veille.conf" "$USER_HOME/.config/hypr/nexus-veille.conf"
 
+# Mise à jour : si le service tourne déjà, il redémarre avec le nouveau programme
+USER_UID=$(id -u "$USER_NAME")
+if [[ -S "/run/user/$USER_UID/bus" ]]; then
+  sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" systemctl --user daemon-reload || true
+  sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" systemctl --user try-restart nexus-veille || true
+  log "   service rechargé avec la nouvelle version"
+fi
+
 # ------------------------------------------------------------
 log "5/6 Branchement Hyprland"
 HCONF="$USER_HOME/.config/hypr/hyprland.conf"

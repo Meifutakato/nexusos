@@ -11,11 +11,26 @@ use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct Fenetre {
+    pub adresse: String,
     pub pid: i32,
     pub classe: String,
     pub espace: i64,
-    /// 0 = fenêtre actuellement au premier plan.
-    pub rang_focus: i64,
+}
+
+/// Ce qui est affiché en ce moment.
+#[derive(Debug, Default)]
+pub struct Ecran {
+    /// Espaces de travail visibles (un par écran + espace spécial ouvert).
+    pub visibles: HashSet<i64>,
+    /// Fenêtre réellement active. `None` sur un espace vide : on ne se fie PAS à
+    /// focusHistoryID, qui garde l'ancienne fenêtre en tête quand rien ne prend le relais.
+    pub active: Option<String>,
+}
+
+impl Ecran {
+    pub fn regarde(&self, f: &Fenetre) -> bool {
+        self.active.as_deref() == Some(f.adresse.as_str()) || self.visibles.contains(&f.espace)
+    }
 }
 
 fn id_espace(j: &Json, champ: &str) -> Option<i64> {
@@ -65,29 +80,57 @@ pub fn fenetres(dossier: &Path) -> io::Result<Vec<Fenetre>> {
         .iter()
         .filter_map(|f| {
             Some(Fenetre {
+                adresse: f.champ("address").and_then(Json::texte).unwrap_or("").to_string(),
                 pid: f.champ("pid")?.entier()? as i32,
                 classe: f.champ("class").and_then(Json::texte).unwrap_or("").to_string(),
                 espace: id_espace(f, "workspace")?,
-                rang_focus: f.champ("focusHistoryID").and_then(Json::entier).unwrap_or(-1),
             })
         })
         .collect())
 }
 
-/// Espaces de travail affichés en ce moment (un par écran, + l'espace spécial s'il est ouvert).
-pub fn espaces_visibles(dossier: &Path) -> io::Result<HashSet<i64>> {
+/// Ce qui est à l'écran : espaces visibles + fenêtre réellement active.
+pub fn ecran(dossier: &Path) -> io::Result<Ecran> {
     let j = lire_json(&requete(dossier, "j/monitors")?)?;
     let ecrans = j.liste().ok_or_else(|| io::Error::other("liste d'écrans attendue"))?;
-    let mut ids = HashSet::new();
+    let mut visibles = HashSet::new();
     for e in ecrans {
         if let Some(id) = id_espace(e, "activeWorkspace") {
-            ids.insert(id);
+            visibles.insert(id);
         }
         if let Some(id) = id_espace(e, "specialWorkspace").filter(|id| *id != 0) {
-            ids.insert(id);
+            visibles.insert(id);
         }
     }
-    Ok(ids)
+    // « {} » quand aucune fenêtre n'a le focus (espace vide).
+    let active = lire_json(&requete(dossier, "j/activewindow")?)?
+        .champ("address")
+        .and_then(Json::texte)
+        .filter(|a| !a.is_empty())
+        .map(String::from);
+    Ok(Ecran { visibles, active })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fenetre(adresse: &str, espace: i64) -> Fenetre {
+        Fenetre { adresse: adresse.into(), pid: 1, classe: "firefox".into(), espace }
+    }
+
+    #[test]
+    fn espace_vide_ne_compte_pas_comme_regarde() {
+        // Firefox sur l'espace 1, on est sur l'espace 2 vide : plus de fenêtre active.
+        let e = Ecran { visibles: [2].into(), active: None };
+        assert!(!e.regarde(&fenetre("0xabc", 1)));
+        // Retour sur l'espace 1.
+        let e = Ecran { visibles: [1].into(), active: Some("0xabc".into()) };
+        assert!(e.regarde(&fenetre("0xabc", 1)));
+        // Fenêtre active mais déplacée ailleurs (ex. espace spécial) : toujours regardée.
+        let e = Ecran { visibles: [3].into(), active: Some("0xabc".into()) };
+        assert!(e.regarde(&fenetre("0xabc", 1)));
+    }
 }
 
 /// Événements qui peuvent rendre une appli de nouveau visible → réveil immédiat.

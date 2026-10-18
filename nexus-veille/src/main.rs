@@ -94,26 +94,80 @@ fn mo(octets: u64) -> String {
     format!("{:.0} Mo", octets as f64 / 1_048_576.0)
 }
 
+/// Pourquoi une appli est (ou n'est pas encore) en veille.
+fn raison(
+    cfg: &Config,
+    scope: &Path,
+    hypr: &Option<(Vec<hypr::Fenetre>, hypr::Ecran)>,
+    cpu_pourcent: Option<f64>,
+) -> String {
+    if cgroup::est_gelee(scope) {
+        return "en veille".into();
+    }
+    if !cgroup::est_dediee(scope) {
+        return "protégée (bureau)".into();
+    }
+    let Some((fenetres, ecran)) = hypr else {
+        return "Hyprland injoignable".into();
+    };
+    let siennes: Vec<&hypr::Fenetre> = fenetres
+        .iter()
+        .filter(|f| cgroup::de_pid(f.pid).as_deref() == Some(scope))
+        .collect();
+    if siennes.is_empty() {
+        return "aucune fenêtre".into();
+    }
+    if let Some(f) = siennes.iter().find(|f| cfg.est_exception(&f.classe)) {
+        return format!("exception ({})", f.classe);
+    }
+    if siennes.iter().any(|f| ecran.regarde(f)) {
+        return "à l'écran".into();
+    }
+    match cpu_pourcent {
+        Some(c) if c > cfg.seuil_cpu_pourcent => format!("travaille ({c:.0} % CPU)"),
+        _ => format!("veille après {} s hors écran", cfg.geler_apres_secondes),
+    }
+}
+
 fn statut() {
+    let cfg = Config::charger();
     let scopes = cgroup::scopes_apps();
     if scopes.is_empty() {
         println!("Aucune appli lancée via « nexus-veille lance » pour le moment.");
     } else {
-        println!("{:<34} {:<9} {:>9} {:>12}", "APPLI", "ÉTAT", "RAM", "COMPRESSÉE");
-        for s in &scopes {
-            let etat = if cgroup::est_gelee(s) { "⏸ veille" } else { "▶ active" };
+        let hypr = hypr::dossier().and_then(|d| Some((hypr::fenetres(&d).ok()?, hypr::ecran(&d).ok()?)));
+        // Mesure du CPU sur 1 seconde.
+        let avant: Vec<Option<u64>> = scopes.iter().map(|s| cgroup::cpu_usec(s)).collect();
+        thread::sleep(Duration::from_secs(1));
+        println!("{:<26} {:<7} {:>8} {:>11}  POURQUOI", "APPLI", "ÉTAT", "RAM", "COMPRESSÉE");
+        for (s, a) in scopes.iter().zip(avant) {
+            let cpu = match (a, cgroup::cpu_usec(s)) {
+                (Some(a), Some(b)) => Some(b.saturating_sub(a) as f64 / 10_000.0),
+                _ => None,
+            };
+            let etat = if cgroup::est_gelee(s) { "veille" } else { "active" };
             let ram = cgroup::lire_u64(s, "memory.current").unwrap_or(0);
             let swap = cgroup::lire_u64(s, "memory.swap.current").unwrap_or(0);
-            println!("{:<34} {:<9} {:>9} {:>12}", cgroup::nom_court(s), etat, mo(ram), mo(swap));
+            println!(
+                "{:<26} {:<7} {:>8} {:>11}  {}",
+                cgroup::nom_court(s),
+                etat,
+                mo(ram),
+                mo(swap),
+                raison(&cfg, s, &hypr, cpu)
+            );
         }
     }
     if let Some((origine, occupe, taille)) = cgroup::zram_stats() {
-        let ratio = if occupe > 0 { origine as f64 / occupe as f64 } else { 0.0 };
+        let ratio = if origine >= 1_048_576 && occupe > 0 {
+            format!(" (×{:.1})", origine as f64 / occupe as f64)
+        } else {
+            String::new()
+        };
         println!(
-            "\nzram : {} de données rangées dans {} de RAM (×{:.1}) — capacité {}",
+            "\nzram : {} de données rangées dans {} de RAM{ratio} — capacité {}",
             mo(origine),
             mo(occupe),
-            ratio,
             mo(taille)
         );
     }
@@ -175,7 +229,7 @@ fn demon() {
             Err(e) => {
                 let msg = e.to_string();
                 if derniere_erreur.as_deref() != Some(&msg) {
-                    eprintln!("⚠ Hyprland injoignable : {msg} (nouvel essai en continu)");
+                    eprintln!("[attente] Hyprland injoignable : {msg} (nouvel essai en continu)");
                     derniere_erreur = Some(msg);
                 }
             }
@@ -186,7 +240,7 @@ fn demon() {
 fn passe(cfg: &Config, suivi: &mut HashMap<PathBuf, Suivi>, complete: bool) -> io::Result<()> {
     let dossier = hypr::dossier().ok_or_else(|| io::Error::other("socket introuvable"))?;
     let fenetres = hypr::fenetres(&dossier)?;
-    let visibles = hypr::espaces_visibles(&dossier)?;
+    let ecran = hypr::ecran(&dossier)?;
     let maintenant = Instant::now();
 
     // Une appli peut avoir plusieurs fenêtres : on raisonne par compartiment.
@@ -196,7 +250,7 @@ fn passe(cfg: &Config, suivi: &mut HashMap<PathBuf, Suivi>, complete: bool) -> i
             continue;
         }
         let Some(cg) = cgroup::de_pid(f.pid) else { continue };
-        let regardee = f.rang_focus == 0 || visibles.contains(&f.espace);
+        let regardee = ecran.regarde(f);
         let g = groupes.entry(cg).or_insert_with(|| Groupe {
             regardee: false,
             exception: false,
@@ -219,8 +273,8 @@ fn passe(cfg: &Config, suivi: &mut HashMap<PathBuf, Suivi>, complete: bool) -> i
             s.cpu_precedent = None;
             if gelee {
                 match cgroup::degeler(cg) {
-                    Ok(()) => println!("▶ réveil : {}", g.classe),
-                    Err(e) => eprintln!("⚠ réveil impossible ({}) : {e}", g.classe),
+                    Ok(()) => println!("[réveil] {}", g.classe),
+                    Err(e) => eprintln!("[erreur] réveil impossible ({}) : {e}", g.classe),
                 }
             }
             continue;
@@ -257,7 +311,7 @@ fn passe(cfg: &Config, suivi: &mut HashMap<PathBuf, Suivi>, complete: bool) -> i
 
 fn mettre_en_veille(cfg: &Config, cg: &Path, classe: &str) {
     if let Err(e) = cgroup::geler(cg) {
-        eprintln!("⚠ veille impossible ({classe}) : {e}");
+        eprintln!("[erreur] veille impossible ({classe}) : {e}");
         return;
     }
     let ram = cgroup::lire_u64(cg, "memory.current").unwrap_or(0);
@@ -268,9 +322,9 @@ fn mettre_en_veille(cfg: &Config, cg: &Path, classe: &str) {
         let cible = (ram as f64 * cfg.part_a_compresser.clamp(0.0, 1.0)) as u64;
         let _ = cgroup::compresser(cg, cible); // EAGAIN = compression partielle, normal
         let apres = cgroup::lire_u64(cg, "memory.current").unwrap_or(ram);
-        println!("⏸ veille : {classe} — RAM {} → {}", mo(ram), mo(apres));
+        println!("[veille] {classe} — RAM {} → {}", mo(ram), mo(apres));
     } else {
-        println!("⏸ veille : {classe} — gelée sans compression (zram plein ou absent)");
+        println!("[veille] {classe} — gelée sans compression (zram plein ou absent)");
     }
 }
 
