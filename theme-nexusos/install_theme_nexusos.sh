@@ -197,6 +197,12 @@ EOF_SDDM
 localectl set-x11-keymap fr 2>/dev/null || true
 systemctl enable sddm.service
 
+# NexusOS — rebrancher la veille compressée si elle est installée
+BRANCHER="$(cd "$(dirname "$0")/.." && pwd)/nexus-veille/systeme/brancher-theme.sh"
+if command -v nexus-veille >/dev/null && [[ -f "$BRANCHER" ]]; then
+  bash "$BRANCHER" "$USERNAME" || ECHECS+=("veille")
+fi
+
 echo
 echo "╔══════════════════════════════════════════════════════╗"
 echo "  Thème NexusOS installé."

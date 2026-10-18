@@ -80,70 +80,8 @@ fi
 
 # ------------------------------------------------------------
 log "6/6 Menu Quickshell → nexus-veille"
-QS="$USER_HOME/.config/quickshell"
-ETAT="$QS/Etat.qml"
-PAGE="$QS/PageApplications.qml"
-if [[ ! -f "$ETAT" ]] || ! grep -q 'function lancer(commande)' "$ETAT"; then
-  log "   ⚠ Etat.qml du thème introuvable ou différent : menu non modifié."
-elif grep -q 'function executer(appli)' "$ETAT"; then
-  log "   menu déjà branché"
-else
-  # Copies de secours (restaurer : cp Etat.qml.avant-veille Etat.qml)
-  sudo -u "$USER_NAME" cp "$ETAT" "$ETAT.avant-veille"
-  [[ -f "$PAGE" ]] && sudo -u "$USER_NAME" cp "$PAGE" "$PAGE.avant-veille"
-
-  # Le fragment est dans /root : on le met dans /tmp pour que wylan puisse le lire
-  FRAGMENT=$(mktemp /tmp/nexus-executer.XXXX.qml)
-  install -m644 "$SRC/systeme/quickshell-executer.qml" "$FRAGMENT"
-
-  # Modifications faites en tant que wylan (les fichiers restent à lui)
-  sudo -u "$USER_NAME" sed -i "/function lancer(commande)/r $FRAGMENT" "$ETAT"
-  sudo -u "$USER_NAME" sed -i 's/^\(\s*\)appli\.execute();/\1executer(appli);/' "$ETAT"
-  [[ -f "$PAGE" ]] && sudo -u "$USER_NAME" sed -i 's/ligne\.modelData\.execute()/Etat.executer(ligne.modelData)/' "$PAGE"
-  rm -f "$FRAGMENT"
-
-  if grep -q 'function executer(appli)' "$ETAT" && grep -q 'executer(appli);' "$ETAT"; then
-    log "   menu branché (Quickshell se recharge tout seul)"
-  else
-    log "   ⚠ modification incomplète : retour aux fichiers d'origine"
-    sudo -u "$USER_NAME" cp "$ETAT.avant-veille" "$ETAT"
-    [[ -f "$PAGE.avant-veille" ]] && sudo -u "$USER_NAME" cp "$PAGE.avant-veille" "$PAGE"
-  fi
-fi
-
-# Toutes les autres icônes / listes du thème qui lancent une appli (dock, menu, recherche…).
-# Les jeux (PageJeux.qml) restent tels quels : ils ne sont jamais mis en veille.
-if [[ -f "$ETAT" ]] && grep -q 'function executer(appli)' "$ETAT"; then
-  while IFS= read -r -d '' F; do
-    [[ "$F" == "$ETAT" || "$(basename "$F")" == "PageJeux.qml" ]] && continue
-    if grep -qE '[A-Za-z_][A-Za-z0-9_.]*\.execute\(\)' "$F"; then
-      [[ -f "$F.avant-veille" ]] || sudo -u "$USER_NAME" cp "$F" "$F.avant-veille"
-      sudo -u "$USER_NAME" sed -i 's/\([A-Za-z_][A-Za-z0-9_.]*\)\.execute()/Etat.executer(\1)/g' "$F"
-      log "   branché : ${F#"$QS"/}"
-    fi
-  done < <(find "$QS" -name '*.qml' -print0)
-fi
-
-# Tout ce que Quickshell lance avec Etat.lancer([...]) passe aussi par la veille
-# (recommandés, espace IA, xdg-open…). Copie de secours : Etat.qml.avant-lancer
-ANCIEN='function lancer(commande) { Quickshell.execDetached(commande); }'
-NOUVEAU='function lancer(commande) { Quickshell.execDetached(["nexus-veille", "lance"].concat(commande)); }'
-if [[ -f "$ETAT" ]]; then
-  if grep -qF "$NOUVEAU" "$ETAT"; then
-    log "   Etat.lancer déjà branché"
-  elif grep -qF "$ANCIEN" "$ETAT"; then
-    sudo -u "$USER_NAME" cp "$ETAT" "$ETAT.avant-lancer"
-    sudo -u "$USER_NAME" sed -i "s|$ANCIEN|$NOUVEAU|" "$ETAT"
-    if grep -qF "$NOUVEAU" "$ETAT"; then
-      log "   Etat.lancer branché (recommandés, espace IA…)"
-    else
-      log "   ⚠ Etat.lancer non modifié : retour au fichier d'origine"
-      sudo -u "$USER_NAME" cp "$ETAT.avant-lancer" "$ETAT"
-    fi
-  else
-    log "   ⚠ Etat.lancer a une forme inattendue : non modifié"
-  fi
-fi
+# Même script que celui appelé par install_theme_nexusos.sh après une (ré)installation du thème
+bash "$SRC/systeme/brancher-theme.sh" "$USER_NAME" || log "   ⚠ branchement du thème incomplet (voir ci-dessus)"
 
 log "Phase 6b terminée. Au prochain lancement de Hyprland, la veille démarre toute seule."
 log "Contrôle : nexus-veille statut   ·   journal : journalctl --user -u nexus-veille -f"
