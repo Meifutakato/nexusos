@@ -17,7 +17,7 @@ SRC="$(cd "$(dirname "$0")" && pwd)/nexus-veille"
 log() { echo -e "\e[1;35m[NexusOS]\e[0m $*"; }
 
 # ------------------------------------------------------------
-log "1/5 Vérifications"
+log "1/6 Vérifications"
 NOYAU=$(uname -r | cut -d. -f1-2)
 if [[ "$(printf '%s\n' 5.19 "$NOYAU" | sort -V | head -n1)" != "5.19" ]]; then
   echo "Noyau $NOYAU trop ancien (5.19 minimum pour la compression)."; exit 1
@@ -26,11 +26,11 @@ fi
 swapon --show | grep -q zram || echo "⚠ zram inactif : lance d'abord la phase 6 (la veille gèlera sans compresser)."
 
 # ------------------------------------------------------------
-log "2/5 Rust"
+log "2/6 Rust"
 pacman -S --needed --noconfirm rust
 
 # ------------------------------------------------------------
-log "3/5 Compilation (hors ligne, aucune dépendance)"
+log "3/6 Compilation (hors ligne, aucune dépendance)"
 BUILD="$USER_HOME/.cache/nexus-veille-build"
 rm -rf "$BUILD"
 mkdir -p "$(dirname "$BUILD")"
@@ -42,7 +42,7 @@ install -Dm644 "$SRC/README.md" /usr/local/share/doc/nexus-veille/README.md
 rm -rf "$BUILD"
 
 # ------------------------------------------------------------
-log "4/5 Service et réglages"
+log "4/6 Service et réglages"
 install -Dm644 "$SRC/systeme/nexus-veille.service" /etc/systemd/user/nexus-veille.service
 
 sudo -u "$USER_NAME" mkdir -p "$USER_HOME/.config/nexusos" "$USER_HOME/.config/hypr"
@@ -54,7 +54,7 @@ fi
 install -m644 -o "$USER_NAME" -g "$(id -gn "$USER_NAME")" "$SRC/systeme/hyprland-veille.conf" "$USER_HOME/.config/hypr/nexus-veille.conf"
 
 # ------------------------------------------------------------
-log "5/5 Branchement Hyprland"
+log "5/6 Branchement Hyprland"
 HCONF="$USER_HOME/.config/hypr/hyprland.conf"
 LIGNE='source = ~/.config/hypr/nexus-veille.conf'
 if [[ -f "$HCONF" ]]; then
@@ -68,6 +68,39 @@ else
   log "   ⚠ hyprland.conf pas encore créé (phase 5 / thème à finir)."
   log "   Après le thème, ajoute à la FIN de $HCONF :"
   log "   $LIGNE"
+fi
+
+# ------------------------------------------------------------
+log "6/6 Menu Quickshell → nexus-veille"
+QS="$USER_HOME/.config/quickshell"
+ETAT="$QS/Etat.qml"
+PAGE="$QS/PageApplications.qml"
+if [[ ! -f "$ETAT" ]] || ! grep -q 'function lancer(commande)' "$ETAT"; then
+  log "   ⚠ Etat.qml du thème introuvable ou différent : menu non modifié."
+elif grep -q 'function executer(appli)' "$ETAT"; then
+  log "   menu déjà branché"
+else
+  # Copies de secours (restaurer : cp Etat.qml.avant-veille Etat.qml)
+  sudo -u "$USER_NAME" cp "$ETAT" "$ETAT.avant-veille"
+  [[ -f "$PAGE" ]] && sudo -u "$USER_NAME" cp "$PAGE" "$PAGE.avant-veille"
+
+  # Le fragment est dans /root : on le met dans /tmp pour que wylan puisse le lire
+  FRAGMENT=$(mktemp /tmp/nexus-executer.XXXX.qml)
+  install -m644 "$SRC/systeme/quickshell-executer.qml" "$FRAGMENT"
+
+  # Modifications faites en tant que wylan (les fichiers restent à lui)
+  sudo -u "$USER_NAME" sed -i "/function lancer(commande)/r $FRAGMENT" "$ETAT"
+  sudo -u "$USER_NAME" sed -i 's/^\(\s*\)appli\.execute();/\1executer(appli);/' "$ETAT"
+  [[ -f "$PAGE" ]] && sudo -u "$USER_NAME" sed -i 's/ligne\.modelData\.execute()/Etat.executer(ligne.modelData)/' "$PAGE"
+  rm -f "$FRAGMENT"
+
+  if grep -q 'function executer(appli)' "$ETAT" && grep -q 'executer(appli);' "$ETAT"; then
+    log "   menu branché (Quickshell se recharge tout seul)"
+  else
+    log "   ⚠ modification incomplète : retour aux fichiers d'origine"
+    sudo -u "$USER_NAME" cp "$ETAT.avant-veille" "$ETAT"
+    [[ -f "$PAGE.avant-veille" ]] && sudo -u "$USER_NAME" cp "$PAGE.avant-veille" "$PAGE"
+  fi
 fi
 
 log "Phase 6b terminée. Au prochain lancement de Hyprland, la veille démarre toute seule."
