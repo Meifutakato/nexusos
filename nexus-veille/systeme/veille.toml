@@ -1,0 +1,25 @@
+# NexusOS — réglages de nexus-veille
+# Après modification : systemctl --user restart nexus-veille
+
+# Minutes hors écran avant la mise en veille (300 s = 5 min)
+geler_apres_secondes = 300
+
+# Vérification toutes les N secondes (le réveil, lui, est immédiat)
+intervalle_secondes = 15
+
+# Part de la mémoire de l'appli envoyée dans zram (0.8 = 80 %)
+part_a_compresser = 0.8
+
+# Une appli qui utilise plus de ce % de CPU travaille encore : on n'y touche pas
+seuil_cpu_pourcent = 5.0
+
+# Si zram est plein au-delà de ce %, on gèle sans compresser
+zram_max_pourcent = 90.0
+
+# Jamais mises en veille (début du nom de classe Hyprland, voir : hyprctl clients)
+exceptions = [
+  "steam", "gamescope", "lutris", "heroic",   # jeux
+  "mpv", "vlc", "spotify", "rhythmbox",       # son / vidéo
+  "discord", "vesktop", "signal", "telegram", # messageries
+  "obs", "kitty",                             # capture, terminal
+]

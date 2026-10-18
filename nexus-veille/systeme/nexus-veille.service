@@ -1,0 +1,11 @@
+[Unit]
+Description=NexusOS — veille compressée des applis hors écran
+Documentation=file:///usr/local/share/doc/nexus-veille/README.md
+
+[Service]
+ExecStart=/usr/local/bin/nexus-veille demon
+# Filet de sécurité : si le service s'arrête ou plante, rien ne reste gelé.
+ExecStopPost=/usr/local/bin/nexus-veille degeler-tout
+Restart=on-failure
+RestartSec=3
+Nice=10

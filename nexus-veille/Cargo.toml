@@ -1,0 +1,16 @@
+[package]
+name = "nexus-veille"
+version = "0.1.0"
+edition = "2021"
+description = "NexusOS — met en veille compressée les applis qu'on ne regarde pas, réveil instantané au retour"
+license = "MIT"
+
+# Aucune dépendance : compile hors ligne, binaire minuscule, quasi zéro RAM.
+[dependencies]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
