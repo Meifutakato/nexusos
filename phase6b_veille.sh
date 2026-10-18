@@ -111,6 +111,19 @@ else
   fi
 fi
 
+# Toutes les autres icônes / listes du thème qui lancent une appli (dock, menu, recherche…).
+# Les jeux (PageJeux.qml) restent tels quels : ils ne sont jamais mis en veille.
+if [[ -f "$ETAT" ]] && grep -q 'function executer(appli)' "$ETAT"; then
+  while IFS= read -r -d '' F; do
+    [[ "$F" == "$ETAT" || "$(basename "$F")" == "PageJeux.qml" ]] && continue
+    if grep -qE '[A-Za-z_][A-Za-z0-9_.]*\.execute\(\)' "$F"; then
+      [[ -f "$F.avant-veille" ]] || sudo -u "$USER_NAME" cp "$F" "$F.avant-veille"
+      sudo -u "$USER_NAME" sed -i 's/\([A-Za-z_][A-Za-z0-9_.]*\)\.execute()/Etat.executer(\1)/g' "$F"
+      log "   branché : ${F#"$QS"/}"
+    fi
+  done < <(find "$QS" -name '*.qml' -print0)
+fi
+
 # Tout ce que Quickshell lance avec Etat.lancer([...]) passe aussi par la veille
 # (recommandés, espace IA, xdg-open…). Copie de secours : Etat.qml.avant-lancer
 ANCIEN='function lancer(commande) { Quickshell.execDetached(commande); }'
